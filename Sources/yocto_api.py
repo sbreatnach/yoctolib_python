@@ -713,9 +713,10 @@ class YAPI:
             YAPI._yApiCLib = ctypes.CDLL(YAPI._yApiCLibFile)
             libloaded = True
         except Exception as ex:
-            raise ImportError(
-                "Unable to import YAPI shared library (" + YAPI._yApiCLibFile +
-                "): " + str(ex))
+            if YAPI._yApiCLibFileFallback == '':
+                raise ImportError(
+                    "Unable to import YAPI shared library (" + YAPI._yApiCLibFile +
+                    "): " + str(ex))
 
         # try to load fallback library
         if not libloaded and YAPI._yApiCLibFileFallback != '':
@@ -2604,7 +2605,7 @@ class YDataStream(object):
                     dat.append(self._decodeAvg(udat[idx] + (((((udat[idx + 1]) ^ (0x8000))) << (16))), 1))
                     self._values.append(dat[:])
                     idx = idx + 2
-        
+
         self._nRows = len(self._values)
         return YAPI.SUCCESS
 
@@ -3135,12 +3136,12 @@ class YDataSet(object):
             maxCol = 2
         else:
             maxCol = 0
-        
+
         for y in dataRows:
             if (tim >= self._startTime) and ((self._endTime == 0) or (tim <= self._endTime)):
                 self._measures.append(YMeasure(tim - itv, tim, y[minCol], y[avgCol], y[maxCol]))
             tim = tim + itv
-        
+
         return self.get_progress()
 
     def get_privateDataStreams(self):
@@ -3338,12 +3339,12 @@ class YDataSet(object):
             maxCol = 2
         else:
             maxCol = 0
-        
+
         for y in dataRows:
             if (tim >= self._startTime) and ((self._endTime == 0) or (tim <= self._endTime)):
                 measures.append(YMeasure(tim - itv, tim, y[minCol], y[avgCol], y[maxCol]))
             tim = tim + itv
-        
+
         return measures
 
     def get_measures(self):
@@ -5144,7 +5145,7 @@ class YModule(YFunction):
         # // may throw an exception
         count = self.functionCount()
         i = 0
-        
+
         while i < count:
             ftype = self.functionType(i)
             if ftype == funType:
@@ -5154,7 +5155,7 @@ class YModule(YFunction):
                 if ftype == funType:
                     res.append(self.functionId(i))
             i = i + 1
-        
+
         return res
 
     def _flattenJsonStruct(self, jsoncomplex):
@@ -5410,9 +5411,9 @@ class YModule(YFunction):
         newval = ""
         old_json_flat = self._flattenJsonStruct(settings)
         old_dslist = self._json_get_array(old_json_flat)
-        
-        
-        
+
+
+
         for y in old_dslist:
             each_str = self._json_get_string(YString2Byte(y))
             #
@@ -5427,16 +5428,16 @@ class YModule(YFunction):
             old_jpath.append(jpath)
             old_jpath_len.append(len(jpath))
             old_val_arr.append(value)
-        
-        
-        
+
+
+
         # // may throw an exception
         actualSettings = self._download("api.json")
         actualSettings = self._flattenJsonStruct(actualSettings)
         new_dslist = self._json_get_array(actualSettings)
-        
-        
-        
+
+
+
         for y in new_dslist:
             #
             each_str = self._json_get_string(YString2Byte(y))
@@ -5452,10 +5453,10 @@ class YModule(YFunction):
             new_jpath.append(jpath)
             new_jpath_len.append(len(jpath))
             new_val_arr.append(value)
-        
-        
-        
-        
+
+
+
+
         i = 0
         while i < len(new_jpath):
             njpath = new_jpath[i]
@@ -5592,7 +5593,7 @@ class YModule(YFunction):
                     else:
                         self._download(url)
             i = i + 1
-        
+
         for y in restoreLast:
             self._download(y)
         return YAPI.SUCCESS
