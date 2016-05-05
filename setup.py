@@ -11,7 +11,7 @@ from setuptools import setup
 
 setup(
     name='yoctopuce',
-    version='1.10.24182',
+    version='1.10.24182.1',
     author='',
     author_email='',
     description='',
