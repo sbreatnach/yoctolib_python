@@ -1,1 +1,1 @@
-recursive-include Sources/cdll *.so *.dll *.dylib
+include Sources/cdll/libyapi-armel.so
