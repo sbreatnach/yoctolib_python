@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_pwminput.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_pwminput.py 28807 2017-10-12 09:46:33Z seb $
 #*
 #* Implements yFindPwmInput(), the high-level API for PwmInput functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -48,7 +49,7 @@ class YPwmInput(YSensor):
     """
     The Yoctopuce class YPwmInput allows you to read and configure Yoctopuce PWM
     sensors. It inherits from YSensor class the core functions to read measurements,
-    register callback functions, access to the autonomous datalogger.
+    to register callback functions, to access the autonomous datalogger.
     This class adds the ability to configure the signal parameter used to transmit
     information: the duty cycle, the frequency or the pulse width.
 
@@ -65,10 +66,15 @@ class YPwmInput(YSensor):
     PERIOD_INVALID = YAPI.INVALID_DOUBLE
     PULSECOUNTER_INVALID = YAPI.INVALID_LONG
     PULSETIMER_INVALID = YAPI.INVALID_LONG
+    DEBOUNCEPERIOD_INVALID = YAPI.INVALID_UINT
     PWMREPORTMODE_PWM_DUTYCYCLE = 0
     PWMREPORTMODE_PWM_FREQUENCY = 1
     PWMREPORTMODE_PWM_PULSEDURATION = 2
     PWMREPORTMODE_PWM_EDGECOUNT = 3
+    PWMREPORTMODE_PWM_PULSECOUNT = 4
+    PWMREPORTMODE_PWM_CPS = 5
+    PWMREPORTMODE_PWM_CPM = 6
+    PWMREPORTMODE_PWM_STATE = 7
     PWMREPORTMODE_INVALID = -1
     #--- (end of YPwmInput definitions)
 
@@ -84,32 +90,28 @@ class YPwmInput(YSensor):
         self._pulseCounter = YPwmInput.PULSECOUNTER_INVALID
         self._pulseTimer = YPwmInput.PULSETIMER_INVALID
         self._pwmReportMode = YPwmInput.PWMREPORTMODE_INVALID
+        self._debouncePeriod = YPwmInput.DEBOUNCEPERIOD_INVALID
         #--- (end of YPwmInput attributes)
 
     #--- (YPwmInput implementation)
-    def _parseAttr(self, member):
-        if member.name == "dutyCycle":
-            self._dutyCycle = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "pulseDuration":
-            self._pulseDuration = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "frequency":
-            self._frequency = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "period":
-            self._period = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "pulseCounter":
-            self._pulseCounter = member.ivalue
-            return 1
-        if member.name == "pulseTimer":
-            self._pulseTimer = member.ivalue
-            return 1
-        if member.name == "pwmReportMode":
-            self._pwmReportMode = member.ivalue
-            return 1
-        super(YPwmInput, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("dutyCycle"):
+            self._dutyCycle = round(json_val.getDouble("dutyCycle") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("pulseDuration"):
+            self._pulseDuration = round(json_val.getDouble("pulseDuration") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("frequency"):
+            self._frequency = round(json_val.getDouble("frequency") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("period"):
+            self._period = round(json_val.getDouble("period") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("pulseCounter"):
+            self._pulseCounter = json_val.getLong("pulseCounter")
+        if json_val.has("pulseTimer"):
+            self._pulseTimer = json_val.getLong("pulseTimer")
+        if json_val.has("pwmReportMode"):
+            self._pwmReportMode = json_val.getInt("pwmReportMode")
+        if json_val.has("debouncePeriod"):
+            self._debouncePeriod = json_val.getInt("debouncePeriod")
+        super(YPwmInput, self)._parseAttr(json_val)
 
     def get_dutyCycle(self):
         """
@@ -119,10 +121,12 @@ class YPwmInput(YSensor):
 
         On failure, throws an exception or returns YPwmInput.DUTYCYCLE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YPwmInput.DUTYCYCLE_INVALID
-        return self._dutyCycle
+        res = self._dutyCycle
+        return res
 
     def get_pulseDuration(self):
         """
@@ -133,10 +137,12 @@ class YPwmInput(YSensor):
 
         On failure, throws an exception or returns YPwmInput.PULSEDURATION_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YPwmInput.PULSEDURATION_INVALID
-        return self._pulseDuration
+        res = self._pulseDuration
+        return res
 
     def get_frequency(self):
         """
@@ -146,10 +152,12 @@ class YPwmInput(YSensor):
 
         On failure, throws an exception or returns YPwmInput.FREQUENCY_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YPwmInput.FREQUENCY_INVALID
-        return self._frequency
+        res = self._frequency
+        return res
 
     def get_period(self):
         """
@@ -159,25 +167,29 @@ class YPwmInput(YSensor):
 
         On failure, throws an exception or returns YPwmInput.PERIOD_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YPwmInput.PERIOD_INVALID
-        return self._period
+        res = self._period
+        return res
 
     def get_pulseCounter(self):
         """
         Returns the pulse counter value. Actually that
         counter is incremented twice per period. That counter is
-        limited  to 1 billion
+        limited  to 1 billion.
 
         @return an integer corresponding to the pulse counter value
 
         On failure, throws an exception or returns YPwmInput.PULSECOUNTER_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YPwmInput.PULSECOUNTER_INVALID
-        return self._pulseCounter
+        res = self._pulseCounter
+        return res
 
     def set_pulseCounter(self, newval):
         rest_val = str(newval)
@@ -191,10 +203,12 @@ class YPwmInput(YSensor):
 
         On failure, throws an exception or returns YPwmInput.PULSETIMER_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YPwmInput.PULSETIMER_INVALID
-        return self._pulseTimer
+        res = self._pulseTimer
+        return res
 
     def get_pwmReportMode(self):
         """
@@ -202,27 +216,34 @@ class YPwmInput(YSensor):
         get_currentValue function and callbacks. Attention
 
         @return a value among YPwmInput.PWMREPORTMODE_PWM_DUTYCYCLE, YPwmInput.PWMREPORTMODE_PWM_FREQUENCY,
-        YPwmInput.PWMREPORTMODE_PWM_PULSEDURATION and YPwmInput.PWMREPORTMODE_PWM_EDGECOUNT corresponding
-        to the parameter (frequency/duty cycle, pulse width, edges count) returned by the get_currentValue
+        YPwmInput.PWMREPORTMODE_PWM_PULSEDURATION, YPwmInput.PWMREPORTMODE_PWM_EDGECOUNT,
+        YPwmInput.PWMREPORTMODE_PWM_PULSECOUNT, YPwmInput.PWMREPORTMODE_PWM_CPS,
+        YPwmInput.PWMREPORTMODE_PWM_CPM and YPwmInput.PWMREPORTMODE_PWM_STATE corresponding to the
+        parameter (frequency/duty cycle, pulse width, edges count) returned by the get_currentValue
         function and callbacks
 
         On failure, throws an exception or returns YPwmInput.PWMREPORTMODE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YPwmInput.PWMREPORTMODE_INVALID
-        return self._pwmReportMode
+        res = self._pwmReportMode
+        return res
 
     def set_pwmReportMode(self, newval):
         """
-        Modifies the  parameter  type (frequency/duty cycle, pulse width, or edge count) returned by the
+        Changes the  parameter  type (frequency/duty cycle, pulse width, or edge count) returned by the
         get_currentValue function and callbacks.
         The edge count value is limited to the 6 lowest digits. For values greater than one million, use
         get_pulseCounter().
 
         @param newval : a value among YPwmInput.PWMREPORTMODE_PWM_DUTYCYCLE,
-        YPwmInput.PWMREPORTMODE_PWM_FREQUENCY, YPwmInput.PWMREPORTMODE_PWM_PULSEDURATION and
-        YPwmInput.PWMREPORTMODE_PWM_EDGECOUNT
+        YPwmInput.PWMREPORTMODE_PWM_FREQUENCY, YPwmInput.PWMREPORTMODE_PWM_PULSEDURATION,
+        YPwmInput.PWMREPORTMODE_PWM_EDGECOUNT, YPwmInput.PWMREPORTMODE_PWM_PULSECOUNT,
+        YPwmInput.PWMREPORTMODE_PWM_CPS, YPwmInput.PWMREPORTMODE_PWM_CPM and
+        YPwmInput.PWMREPORTMODE_PWM_STATE corresponding to the  parameter  type (frequency/duty cycle,
+        pulse width, or edge count) returned by the get_currentValue function and callbacks
 
         @return YAPI.SUCCESS if the call succeeds.
 
@@ -230,6 +251,34 @@ class YPwmInput(YSensor):
         """
         rest_val = str(newval)
         return self._setAttr("pwmReportMode", rest_val)
+
+    def get_debouncePeriod(self):
+        """
+        Returns the shortest expected pulse duration, in ms. Any shorter pulse will be automatically ignored (debounce).
+
+        @return an integer corresponding to the shortest expected pulse duration, in ms
+
+        On failure, throws an exception or returns YPwmInput.DEBOUNCEPERIOD_INVALID.
+        """
+        # res
+        if self._cacheExpiration <= YAPI.GetTickCount():
+            if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
+                return YPwmInput.DEBOUNCEPERIOD_INVALID
+        res = self._debouncePeriod
+        return res
+
+    def set_debouncePeriod(self, newval):
+        """
+        Changes the shortest expected pulse duration, in ms. Any shorter pulse will be automatically ignored (debounce).
+
+        @param newval : an integer corresponding to the shortest expected pulse duration, in ms
+
+        @return YAPI.SUCCESS if the call succeeds.
+
+        On failure, throws an exception or returns a negative error code.
+        """
+        rest_val = str(newval)
+        return self._setAttr("debouncePeriod", rest_val)
 
     @staticmethod
     def FindPwmInput(func):
@@ -251,6 +300,10 @@ class YPwmInput(YSensor):
         a PWM input by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string that uniquely characterizes the PWM input
 
@@ -290,7 +343,7 @@ class YPwmInput(YSensor):
 
 #--- (end of YPwmInput implementation)
 
-#--- (PwmInput functions)
+#--- (YPwmInput functions)
 
     @staticmethod
     def FirstPwmInput():
@@ -324,4 +377,4 @@ class YPwmInput(YSensor):
 
         return YPwmInput.FindPwmInput(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of PwmInput functions)
+#--- (end of YPwmInput functions)

@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_digitalio.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_digitalio.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindDigitalIO(), the high-level API for DigitalIO functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -62,6 +63,7 @@ class YDigitalIO(YFunction):
     PORTDIRECTION_INVALID = YAPI.INVALID_UINT
     PORTOPENDRAIN_INVALID = YAPI.INVALID_UINT
     PORTPOLARITY_INVALID = YAPI.INVALID_UINT
+    PORTDIAGS_INVALID = YAPI.INVALID_UINT
     PORTSIZE_INVALID = YAPI.INVALID_UINT
     COMMAND_INVALID = YAPI.INVALID_STRING
     OUTPUTVOLTAGE_USB_5V = 0
@@ -79,35 +81,31 @@ class YDigitalIO(YFunction):
         self._portDirection = YDigitalIO.PORTDIRECTION_INVALID
         self._portOpenDrain = YDigitalIO.PORTOPENDRAIN_INVALID
         self._portPolarity = YDigitalIO.PORTPOLARITY_INVALID
+        self._portDiags = YDigitalIO.PORTDIAGS_INVALID
         self._portSize = YDigitalIO.PORTSIZE_INVALID
         self._outputVoltage = YDigitalIO.OUTPUTVOLTAGE_INVALID
         self._command = YDigitalIO.COMMAND_INVALID
         #--- (end of YDigitalIO attributes)
 
     #--- (YDigitalIO implementation)
-    def _parseAttr(self, member):
-        if member.name == "portState":
-            self._portState = member.ivalue
-            return 1
-        if member.name == "portDirection":
-            self._portDirection = member.ivalue
-            return 1
-        if member.name == "portOpenDrain":
-            self._portOpenDrain = member.ivalue
-            return 1
-        if member.name == "portPolarity":
-            self._portPolarity = member.ivalue
-            return 1
-        if member.name == "portSize":
-            self._portSize = member.ivalue
-            return 1
-        if member.name == "outputVoltage":
-            self._outputVoltage = member.ivalue
-            return 1
-        if member.name == "command":
-            self._command = member.svalue
-            return 1
-        super(YDigitalIO, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("portState"):
+            self._portState = json_val.getInt("portState")
+        if json_val.has("portDirection"):
+            self._portDirection = json_val.getInt("portDirection")
+        if json_val.has("portOpenDrain"):
+            self._portOpenDrain = json_val.getInt("portOpenDrain")
+        if json_val.has("portPolarity"):
+            self._portPolarity = json_val.getInt("portPolarity")
+        if json_val.has("portDiags"):
+            self._portDiags = json_val.getInt("portDiags")
+        if json_val.has("portSize"):
+            self._portSize = json_val.getInt("portSize")
+        if json_val.has("outputVoltage"):
+            self._outputVoltage = json_val.getInt("outputVoltage")
+        if json_val.has("command"):
+            self._command = json_val.getString("command")
+        super(YDigitalIO, self)._parseAttr(json_val)
 
     def get_portState(self):
         """
@@ -117,10 +115,12 @@ class YDigitalIO(YFunction):
 
         On failure, throws an exception or returns YDigitalIO.PORTSTATE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YDigitalIO.PORTSTATE_INVALID
-        return self._portState
+        res = self._portState
+        return res
 
     def set_portState(self, newval):
         """
@@ -145,10 +145,12 @@ class YDigitalIO(YFunction):
 
         On failure, throws an exception or returns YDigitalIO.PORTDIRECTION_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YDigitalIO.PORTDIRECTION_INVALID
-        return self._portDirection
+        res = self._portDirection
+        return res
 
     def set_portDirection(self, newval):
         """
@@ -175,10 +177,12 @@ class YDigitalIO(YFunction):
 
         On failure, throws an exception or returns YDigitalIO.PORTOPENDRAIN_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YDigitalIO.PORTOPENDRAIN_INVALID
-        return self._portOpenDrain
+        res = self._portOpenDrain
+        return res
 
     def set_portOpenDrain(self, newval):
         """
@@ -204,18 +208,22 @@ class YDigitalIO(YFunction):
 
         On failure, throws an exception or returns YDigitalIO.PORTPOLARITY_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YDigitalIO.PORTPOLARITY_INVALID
-        return self._portPolarity
+        res = self._portPolarity
+        return res
 
     def set_portPolarity(self, newval):
         """
-        Changes the polarity of all the bits of the port: 0 makes a bit an input, 1 makes it an output.
+        Changes the polarity of all the bits of the port: For each bit set to 0, the matching I/O works the regular,
+        intuitive way; for each bit set to 1, the I/O works in reverse mode.
         Remember to call the saveToFlash() method  to make sure the setting will be kept after a reboot.
 
-        @param newval : an integer corresponding to the polarity of all the bits of the port: 0 makes a bit
-        an input, 1 makes it an output
+        @param newval : an integer corresponding to the polarity of all the bits of the port: For each bit
+        set to 0, the matching I/O works the regular,
+                intuitive way; for each bit set to 1, the I/O works in reverse mode
 
         @return YAPI.SUCCESS if the call succeeds.
 
@@ -223,6 +231,23 @@ class YDigitalIO(YFunction):
         """
         rest_val = str(newval)
         return self._setAttr("portPolarity", rest_val)
+
+    def get_portDiags(self):
+        """
+        Returns the port state diagnostics (Yocto-IO and Yocto-MaxiIO-V2 only). Bit 0 indicates a shortcut on
+        output 0, etc. Bit 8 indicates a power failure, and bit 9 signals overheating (overcurrent).
+        During normal use, all diagnostic bits should stay clear.
+
+        @return an integer corresponding to the port state diagnostics (Yocto-IO and Yocto-MaxiIO-V2 only)
+
+        On failure, throws an exception or returns YDigitalIO.PORTDIAGS_INVALID.
+        """
+        # res
+        if self._cacheExpiration <= YAPI.GetTickCount():
+            if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
+                return YDigitalIO.PORTDIAGS_INVALID
+        res = self._portDiags
+        return res
 
     def get_portSize(self):
         """
@@ -232,10 +257,12 @@ class YDigitalIO(YFunction):
 
         On failure, throws an exception or returns YDigitalIO.PORTSIZE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YDigitalIO.PORTSIZE_INVALID
-        return self._portSize
+        res = self._portSize
+        return res
 
     def get_outputVoltage(self):
         """
@@ -246,10 +273,12 @@ class YDigitalIO(YFunction):
 
         On failure, throws an exception or returns YDigitalIO.OUTPUTVOLTAGE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YDigitalIO.OUTPUTVOLTAGE_INVALID
-        return self._outputVoltage
+        res = self._outputVoltage
+        return res
 
     def set_outputVoltage(self, newval):
         """
@@ -267,10 +296,12 @@ class YDigitalIO(YFunction):
         return self._setAttr("outputVoltage", rest_val)
 
     def get_command(self):
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YDigitalIO.COMMAND_INVALID
-        return self._command
+        res = self._command
+        return res
 
     def set_command(self, newval):
         rest_val = newval
@@ -296,6 +327,10 @@ class YDigitalIO(YFunction):
         a digital IO port by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string that uniquely characterizes the digital IO port
 
@@ -500,7 +535,7 @@ class YDigitalIO(YFunction):
 
 #--- (end of YDigitalIO implementation)
 
-#--- (DigitalIO functions)
+#--- (YDigitalIO functions)
 
     @staticmethod
     def FirstDigitalIO():
@@ -534,4 +569,4 @@ class YDigitalIO(YFunction):
 
         return YDigitalIO.FindDigitalIO(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of DigitalIO functions)
+#--- (end of YDigitalIO functions)

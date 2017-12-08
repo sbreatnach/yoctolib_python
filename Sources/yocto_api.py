@@ -1,42 +1,42 @@
+# -*- coding: utf-8 -*-
 # *********************************************************************
 # *
-# * $Id: yocto_api.py 23882 2016-04-12 08:38:50Z seb $
+# * $Id: yocto_api.py 29366 2017-12-01 10:40:12Z seb $
 # *
-#* High-level programming interface, common to all modules
-#*
-#* - - - - - - - - - License information: - - - - - - - - -
-#*
-#*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
-#*
-#*  Yoctopuce Sarl (hereafter Licensor) grants to you a perpetual
-#*  non-exclusive license to use, modify, copy and integrate this
-#*  file into your software for the sole purpose of interfacing
-#*  with Yoctopuce products.
-#*
-#*  You may reproduce and distribute copies of this file in
-#*  source or object form, as long as the sole purpose of this
-#*  code is to interface with Yoctopuce products. You must retain
-#*  this notice in the distributed source file.
-#*
-#*  You should refer to Yoctopuce General Terms and Conditions
-#*  for additional information regarding your rights and
-#*  obligations.
-#*
-#*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
-#*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
-#*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
-#*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
-#*  INDIRECT OR CONSEQUENTIAL DAMAGES, LOST PROFITS OR LOST DATA,
-#*  COST OF PROCUREMENT OF SUBSTITUTE GOODS, TECHNOLOGY OR
-#*  SERVICES, ANY CLAIMS BY THIRD PARTIES (INCLUDING BUT NOT
-#*  LIMITED TO ANY DEFENSE THEREOF), ANY CLAIMS FOR INDEMNITY OR
-#*  CONTRIBUTION, OR OTHER SIMILAR COSTS, WHETHER ASSERTED ON THE
-#*  BASIS OF CONTRACT, TORT (INCLUDING NEGLIGENCE), BREACH OF
-#*  WARRANTY, OR OTHERWISE.
-#*
-#*********************************************************************/
-
+# * High-level programming interface, common to all modules
+# *
+# * - - - - - - - - - License information: - - - - - - - - -
+# *
+# *  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
+# *
+# *  Yoctopuce Sarl (hereafter Licensor) grants to you a perpetual
+# *  non-exclusive license to use, modify, copy and integrate this
+# *  file into your software for the sole purpose of interfacing
+# *  with Yoctopuce products.
+# *
+# *  You may reproduce and distribute copies of this file in
+# *  source or object form, as long as the sole purpose of this
+# *  code is to interface with Yoctopuce products. You must retain
+# *  this notice in the distributed source file.
+# *
+# *  You should refer to Yoctopuce General Terms and Conditions
+# *  for additional information regarding your rights and
+# *  obligations.
+# *
+# *  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
+# *  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+# *  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
+# *  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
+# *  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
+# *  INDIRECT OR CONSEQUENTIAL DAMAGES, LOST PROFITS OR LOST DATA,
+# *  COST OF PROCUREMENT OF SUBSTITUTE GOODS, TECHNOLOGY OR
+# *  SERVICES, ANY CLAIMS BY THIRD PARTIES (INCLUDING BUT NOT
+# *  LIMITED TO ANY DEFENSE THEREOF), ANY CLAIMS FOR INDEMNITY OR
+# *  CONTRIBUTION, OR OTHER SIMILAR COSTS, WHETHER ASSERTED ON THE
+# *  BASIS OF CONTRACT, TORT (INCLUDING NEGLIGENCE), BREACH OF
+# *  WARRANTY, OR OTHERWISE.
+# *
+# *********************************************************************/
 from __future__ import division
 
 __docformat__ = 'restructuredtext en'
@@ -44,7 +44,7 @@ __docformat__ = 'restructuredtext en'
 import datetime
 import ctypes
 import platform
-#import abc  (not supported in 2.5.x)
+# import abc  (not supported in 2.5.x)
 import random
 import sys
 import os
@@ -52,6 +52,7 @@ import time
 import array
 import binascii
 from ctypes import *
+
 
 #
 #  PYTHON 2.x VS PYTHON 3.x compatibility check
@@ -65,7 +66,10 @@ def YString2BytePython2x(strBuffer):
 
 
 def YGetBytePython2x(binBuffer, idx):
-    return ord(binBuffer[idx])
+    item = binBuffer[idx]
+    if type(item) is int:
+        return item
+    return ord(item)
 
 
 def YAddBytePython2x(binBuffer, b):
@@ -137,384 +141,588 @@ class YAPI_Exception(Exception):
     def __init__(self, errType, errMsg):
         super(YAPI_Exception, self).__init__(errMsg)
         self.errorType = errType
+        self.errorMessage = errMsg
 
 
-#noinspection PyClassHasNoInit,PyProtectedMember
+class YJSONType:
+    STRING, NUMBER, ARRAY, OBJECT = range(4)
+
+
+class Tjstate:
+    JSTART, JWAITFORNAME, JWAITFORENDOFNAME, JWAITFORCOLON, JWAITFORDATA, JWAITFORNEXTSTRUCTMEMBER, JWAITFORNEXTARRAYITEM, \
+    JWAITFORSTRINGVALUE, JWAITFORSTRINGVALUE_ESC, JWAITFORINTVALUE, JWAITFORBOOLVALUE = range(11)
+
+
+class YJSONContent(object):
+    @staticmethod
+    def ParseJson(data, start, stop):
+        cur_pos = YJSONContent.SkipGarbage(data, start, stop)
+        c = data[cur_pos]
+        if c == '[':
+            res = YJSONArray(data, start, stop)
+        elif c == '{':
+            res = YJSONObject(data, start, stop)
+        elif c == '"':
+            res = YJSONString(data, start, stop)
+        else:
+            res = YJSONNumber(data, start, stop)
+        res.parse()
+        return res
+
+    def __init__(self, data, start, stop, typ):
+        self._data = data
+        self._data_start = start
+        self._data_len = start
+        self._data_boundary = stop
+        self._type = typ
+
+    def getJSONType(self):
+        return self._type
+
+    def parse(self):
+        raise Exception("abstract methode")
+
+    @staticmethod
+    def SkipGarbage(data, start, stop):
+        if stop <= start:
+            return start
+        while start < stop:
+            sti = data[start]
+            if sti != ' ' and sti != '\n' and sti != '\r':
+                break
+            start += 1
+        return start
+
+    def formatError(self, errmsg, cur_pos):
+        ststart = cur_pos - 10
+        stend = cur_pos + 10
+        if ststart < 0:
+            ststart = 0
+        if stend > self._data_boundary:
+            stend = self._data_boundary
+        if self._data is not None:
+            return errmsg + " near " + self._data[ststart: stend]
+        return errmsg
+
+
+class YJSONString(YJSONContent):
+    def __init__(self, data, start, stop):
+        super(YJSONString, self).__init__(data, start, stop, YJSONType.STRING)
+        self._stringValue = None
+
+    def parse(self):
+        value = ""
+        cur_pos = YJSONContent.SkipGarbage(self._data, self._data_start, self._data_boundary)
+
+        if self._data[cur_pos] != '"':
+            raise YAPI.YAPI_Exception(YAPI.INVALID_ARGUMENT, self.formatError("double quote was expected", cur_pos))
+        cur_pos += 1
+        str_start = cur_pos
+        state = Tjstate.JWAITFORSTRINGVALUE
+        while cur_pos < self._data_boundary:
+            sti = self._data[cur_pos]
+            if state == Tjstate.JWAITFORSTRINGVALUE:
+                if sti == '\\':
+                    value += self._data[str_start: cur_pos]
+                    str_start = cur_pos
+                    state = Tjstate.JWAITFORSTRINGVALUE_ESC
+                elif sti == '"':
+                    value += self._data[str_start: cur_pos]
+                    self._stringValue = value
+                    self._data_len = (cur_pos + 1) - self._data_start
+                    return self._data_len
+                elif sti < ' ':
+                    raise YAPI.YAPI_Exception(YAPI.INVALID_ARGUMENT,
+                                              self.formatError("invalid char: was expecting string value", cur_pos))
+            elif state == Tjstate.JWAITFORSTRINGVALUE_ESC:
+                value += sti
+                state = Tjstate.JWAITFORSTRINGVALUE
+                str_start = cur_pos + 1
+            else:
+                raise YAPI.YAPI_Exception(YAPI.INVALID_ARGUMENT,
+                                          self.formatError("invalid state for YJSONObject", cur_pos))
+
+            cur_pos += 1
+
+        raise YAPI.YAPI_Exception(YAPI.INVALID_ARGUMENT, self.formatError("unexpected end of data", cur_pos))
+
+    def toJSON(self):
+        res = '"'
+        le = len(self._stringValue)
+        for i in range(0, le):
+            c = self._stringValue[i]
+            if c == '"':
+                res += "\\\""
+            elif c == '\\':
+                res += "\\\\"
+            elif c == '/':
+                res += "\\/"
+            elif c == '\b':
+                res += "\\b"
+            elif c == '\f':
+                res += "\\f"
+            elif c == '\n':
+                res += "\\n"
+            elif c == '\r':
+                res += "\\r"
+            elif c == '\t':
+                res += "\\t"
+            else:
+                res += c
+        res += '"'
+        return res
+
+    def getString(self):
+        return self._stringValue
+
+    def toString(self):
+        return self._stringValue
+
+    def setContent(self, value):
+        self._stringValue = value
+
+
+class YJSONNumber(YJSONContent):
+    def __init__(self, data, start, stop):
+        super(YJSONNumber, self).__init__(data, start, stop, YJSONType.NUMBER)
+        self._intValue = 0
+        self._doubleValue = 0
+        self._isFloat = False
+
+    def parse(self):
+        neg = False
+        cur_pos = YJSONContent.SkipGarbage(self._data, self._data_start, self._data_boundary)
+        if self._data is None:
+            raise YAPI.YAPI_Exception(YAPI.INVALID_ARGUMENT, "no data")
+        sti = self._data[cur_pos]
+        if sti == '-':
+            neg = True
+            cur_pos += 1
+        start = cur_pos
+        while cur_pos < self._data_boundary:
+            sti = self._data[cur_pos]
+            if sti == '.' and not self._isFloat:
+                int_part = self._data[start: cur_pos]
+                self._intValue = int(int_part)
+                self._isFloat = True
+            elif sti < '0' or sti > '9':
+                numberpart = self._data[start: cur_pos]
+                if self._isFloat:
+                    self._doubleValue = float(numberpart)
+                else:
+                    self._intValue = int(numberpart)
+
+                if neg:
+                    self._doubleValue = 0 - self._doubleValue
+                    self._intValue = 0 - self._intValue
+
+                return cur_pos - self._data_start
+            cur_pos += 1
+        raise YAPI.YAPI_Exception(YAPI.INVALID_ARGUMENT, self.formatError("unexpected end of data", cur_pos))
+
+    def toJSON(self):
+        if self._isFloat:
+            return str(self._doubleValue)
+        else:
+            return str(self._intValue)
+
+    def getLong(self):
+        if self._isFloat:
+            return self._doubleValue
+        else:
+            return self._intValue
+
+    def getInt(self):
+        if self._isFloat:
+            return self._doubleValue
+        else:
+            return self._intValue
+
+    def getDouble(self):
+        if self._isFloat:
+            return self._doubleValue
+        else:
+            return self._intValue
+
+    def toString(self):
+        if self._isFloat:
+            return str(self._doubleValue)
+        else:
+            return str(self._intValue)
+
+
+class YJSONArray(YJSONContent):
+    def __init__(self, data, start, stop):
+        super(YJSONArray, self).__init__(data, start, stop, YJSONType.ARRAY)
+        self._arrayValue = []
+
+    def length(self):
+        return len(self._arrayValue)
+
+    def parse(self):
+        cur_pos = YJSONContent.SkipGarbage(self._data, self._data_start, self._data_boundary)
+        if self._data[cur_pos] != '[':
+            raise YAPI.YAPI_Exception(YAPI.INVALID_ARGUMENT, self.formatError("Opening braces was expected", cur_pos))
+        cur_pos += 1
+        state = Tjstate.JWAITFORDATA
+
+        while cur_pos < self._data_boundary:
+            sti = self._data[cur_pos]
+            if state == Tjstate.JWAITFORDATA:
+                if sti == '{':
+                    jobj = YJSONObject(self._data, cur_pos, self._data_boundary)
+                    length = jobj.parse()
+                    cur_pos += length
+                    self._arrayValue.append(jobj)
+                    state = Tjstate.JWAITFORNEXTARRAYITEM
+                    # cur_pos is already incremented
+                    continue
+                elif sti == '[':
+                    jobj = YJSONArray(self._data, cur_pos, self._data_boundary)
+                    length = jobj.parse()
+                    cur_pos += length
+                    self._arrayValue.append(jobj)
+                    state = Tjstate.JWAITFORNEXTARRAYITEM
+                    # cur_pos is already incremented
+                    continue
+                elif sti == '"':
+                    jobj = YJSONString(self._data, cur_pos, self._data_boundary)
+                    length = jobj.parse()
+                    cur_pos += length
+                    self._arrayValue.append(jobj)
+                    state = Tjstate.JWAITFORNEXTARRAYITEM
+                    # #cur_pos is already incremented
+                    continue
+                elif sti == '-' or ('0' <= sti <= '9'):
+                    jobj = YJSONNumber(self._data, cur_pos, self._data_boundary)
+                    length = jobj.parse()
+                    cur_pos += length
+                    self._arrayValue.append(jobj)
+                    state = Tjstate.JWAITFORNEXTARRAYITEM
+                    # cur_pos is already incremented
+                    continue
+                elif sti == ']':
+                    self._data_len = cur_pos + 1 - self._data_start
+                    return self._data_len
+                elif sti != ' ' and sti != '\n' and sti != '\r':
+                    raise YAPI.YAPI_Exception(YAPI.INVALID_ARGUMENT,
+                                              self.formatError("invalid char: was expecting  \",0..9,t or f", cur_pos))
+
+            elif state == Tjstate.JWAITFORNEXTARRAYITEM:
+                if sti == ',':
+                    state = Tjstate.JWAITFORDATA
+                elif sti == ']':
+                    self._data_len = cur_pos + 1 - self._data_start
+                    return self._data_len
+                else:
+                    if sti != ' ' and sti != '\n' and sti != '\r':
+                        raise YAPI.YAPI_Exception(YAPI.INVALID_ARGUMENT,
+                                                  self.formatError("invalid char: was expecting ,", cur_pos))
+            else:
+                raise YAPI.YAPI_Exception(YAPI.INVALID_ARGUMENT,
+                                          self.formatError("invalid state for YJSONObject", cur_pos))
+            cur_pos += 1
+        raise YAPI.YAPI_Exception(YAPI.INVALID_ARGUMENT, self.formatError("unexpected end of data", cur_pos))
+
+    def getYJSONObject(self, i):
+        if i >= len(self._arrayValue):
+            return None
+        return self._arrayValue[i]
+
+    def getString(self, i):
+        if i >= len(self._arrayValue):
+            return None
+        ystr = self._arrayValue[i]
+        return ystr.getString()
+
+    def get(self, i):
+        if i >= len(self._arrayValue):
+            return None
+        return self._arrayValue[i]
+
+    def getYJSONArray(self, i):
+        if i >= len(self._arrayValue):
+            return None
+        return self._arrayValue[i]
+
+    def getInt(self, i):
+        if i >= len(self._arrayValue):
+            return None
+        ystr = self._arrayValue[i]
+        return ystr.getInt()
+
+    def getLong(self, i):
+        if i >= len(self._arrayValue):
+            return None
+        ystr = self._arrayValue[i]
+        return ystr.getLong()
+
+    def getDouble(self, i):
+        if i >= len(self._arrayValue):
+            return None
+        ystr = self._arrayValue[i]
+        return ystr.getDouble()
+
+    def put(self, flatAttr):
+        strobj = YJSONString(None, 0, 0)
+        strobj.setContent(flatAttr)
+        self._arrayValue.append(strobj)
+
+    def toJSON(self):
+        res = '['
+        sep = ""
+        for yjsonContent in self._arrayValue:
+            subres = yjsonContent.toJSON()
+            res += sep
+            res += subres
+            sep = ","
+
+        res += ']'
+        return res
+
+    def toString(self):
+        res = '['
+        sep = ""
+        for yjsonContent in self._arrayValue:
+            subres = yjsonContent.toString()
+            res += sep
+            res += subres
+            sep = ","
+
+        res += ']'
+        return res
+
+
+class YJSONObject(YJSONContent):
+    def __init__(self, data, start, stop):
+        super(YJSONObject, self).__init__(data, start, stop, YJSONType.OBJECT)
+        self._parsed = {}
+        self._keys = []
+
+    def parse(self):
+        current_name = ""
+        name_start = self._data_start
+        cur_pos = YJSONContent.SkipGarbage(self._data, self._data_start, self._data_boundary)
+        if len(self._data) <= cur_pos or self._data[cur_pos] != '{':
+            raise YAPI.YAPI_Exception(YAPI.INVALID_ARGUMENT, self.formatError("Opening braces was expected", cur_pos))
+
+        cur_pos += 1
+        state = Tjstate.JWAITFORNAME
+        while cur_pos < self._data_boundary:
+            sti = self._data[cur_pos]
+            if state == Tjstate.JWAITFORNAME:
+                if sti == '"':
+                    state = Tjstate.JWAITFORENDOFNAME
+                    name_start = cur_pos + 1
+                elif sti == '}':
+                    self._data_len = cur_pos + 1 - self._data_start
+                    return self._data_len
+                else:
+                    if sti != ' ' and sti != '\n' and sti != '\r':
+                        raise YAPI.YAPI_Exception(YAPI.INVALID_ARGUMENT,
+                                                  self.formatError("invalid char: was expecting \"", cur_pos))
+            elif state == Tjstate.JWAITFORENDOFNAME:
+                if sti == '"':
+                    current_name = self._data[name_start: cur_pos]
+                    state = Tjstate.JWAITFORCOLON
+                else:
+                    if sti < ' ':
+                        raise YAPI.YAPI_Exception(YAPI.INVALID_ARGUMENT,
+                                                  self.formatError(
+                                                      "invalid char: was expecting an identifier compliant char",
+                                                      cur_pos))
+            elif state == Tjstate.JWAITFORCOLON:
+                if sti == ':':
+                    state = Tjstate.JWAITFORDATA
+                else:
+                    if sti != ' ' and sti != '\n' and sti != '\r':
+                        raise YAPI.YAPI_Exception(YAPI.INVALID_ARGUMENT,
+                                                  self.formatError("invalid char: was expecting \"", cur_pos))
+            elif state == Tjstate.JWAITFORDATA:
+                if sti == '{':
+                    jobj = YJSONObject(self._data, cur_pos, self._data_boundary)
+                    length = jobj.parse()
+                    self._parsed[current_name] = jobj
+                    self._keys.append(current_name)
+                    cur_pos += length
+                    state = Tjstate.JWAITFORNEXTSTRUCTMEMBER
+                    continue
+                elif sti == '[':
+                    jobj = YJSONArray(self._data, cur_pos, self._data_boundary)
+                    length = jobj.parse()
+                    cur_pos += length
+                    self._parsed[current_name] = jobj
+                    self._keys.append(current_name)
+                    state = Tjstate.JWAITFORNEXTSTRUCTMEMBER
+                    continue
+                elif sti == '"':
+                    jobj = YJSONString(self._data, cur_pos, self._data_boundary)
+                    length = jobj.parse()
+                    cur_pos += length
+                    self._parsed[current_name] = jobj
+                    self._keys.append(current_name)
+                    state = Tjstate.JWAITFORNEXTSTRUCTMEMBER
+                    continue
+                elif sti == '-' or ('0' <= sti <= '9'):
+                    jobj = YJSONNumber(self._data, cur_pos, self._data_boundary)
+                    length = jobj.parse()
+                    cur_pos += length
+                    self._parsed[current_name] = jobj
+                    self._keys.append(current_name)
+                    state = Tjstate.JWAITFORNEXTSTRUCTMEMBER
+                    continue
+                elif sti != ' ' and sti != '\n' and sti != '\r':
+                    raise YAPI.YAPI_Exception(YAPI.INVALID_ARGUMENT,
+                                              self.formatError("invalid char: was expecting  \",0..9,t or f", cur_pos))
+
+            elif state == Tjstate.JWAITFORNEXTSTRUCTMEMBER:
+                if sti == ',':
+                    state = Tjstate.JWAITFORNAME
+                    name_start = cur_pos + 1
+                elif sti == '}':
+                    self._data_len = cur_pos + 1 - self._data_start
+                    return self._data_len
+                else:
+                    if sti != ' ' and sti != '\n' and sti != '\r':
+                        raise YAPI.YAPI_Exception(YAPI.INVALID_ARGUMENT,
+                                                  self.formatError("invalid char: was expecting ,", cur_pos))
+            elif state == Tjstate.JWAITFORNEXTARRAYITEM or state == Tjstate.JWAITFORSTRINGVALUE or state == Tjstate.JWAITFORINTVALUE or state == Tjstate.JWAITFORBOOLVALUE:
+                raise YAPI.YAPI_Exception(YAPI.INVALID_ARGUMENT,
+                                          self.formatError("invalid state for YJSONObject", cur_pos))
+
+            cur_pos += 1
+        raise YAPI.YAPI_Exception(YAPI.INVALID_ARGUMENT, self.formatError("unexpected end of data", cur_pos))
+
+    def has(self, key):
+        if key in self._parsed:
+            return True
+        return False
+
+    def getYJSONObject(self, key):
+        if key not in self._parsed:
+            return None
+        return self._parsed[key]
+
+    def getYJSONString(self, key):
+        if key not in self._parsed:
+            return None
+        return self._parsed[key]
+
+    def getYJSONArray(self, key):
+        if key not in self._parsed:
+            return None
+        return self._parsed[key]
+
+    def getKeys(self):
+        return self._parsed.keys()
+
+    def getYJSONNumber(self, key):
+        if key not in self._parsed:
+            return None
+        return self._parsed[key]
+
+    def remove(self, key):
+        self._parsed.pop(key, None)
+
+    def getString(self, key):
+        if key not in self._parsed:
+            return ""
+        ystr = self._parsed[key]
+        return ystr.getString()
+
+    def getInt(self, key):
+        if key not in self._parsed:
+            return None
+        yint = self._parsed[key]
+        return yint.getInt()
+
+    def get(self, key):
+        if key not in self._parsed:
+            return None
+        return self._parsed[key]
+
+    def getLong(self, key):
+        if key not in self._parsed:
+            return None
+        yint = self._parsed[key]
+        return yint.getLong()
+
+    def getDouble(self, key):
+        if key not in self._parsed:
+            return None
+        yint = self._parsed[key]
+        return yint.getDouble()
+
+    def toJSON(self):
+        res = '{'
+        sep = ""
+        for key in self._parsed.keys():
+            subContent = self._parsed[key]
+            subres = subContent.toJSON()
+            res += sep
+            res += '"'
+            res += key
+            res += "\":"
+            res += subres
+            sep = ","
+        res += '}'
+        return res
+
+    def toString(self):
+        res = '{'
+        sep = ""
+        for key in self._parsed.keys():
+            subContent = self._parsed[key]
+            subres = subContent.toString()
+            res += sep
+            res += key
+            res += "=>"
+            res += subres
+            sep = ","
+        res += '}'
+        return res
+
+    def parseWithRef(self, reference):
+        if reference is not None:
+            try:
+                yzon = YJSONArray(self._data, self._data_start, self._data_boundary)
+                yzon.parse()
+                self.convert(reference, yzon)
+                return
+            except YAPI.YAPI_Exception:
+                self.parse()
+                return
+        self.parse()
+
+    def convert(self, reference, newArray):
+        length = newArray.length()
+        for i in range(0, length):
+            key = reference.getKeyFromIdx(i)
+            new_item = newArray.get(i)
+            reference_item = reference.get(key)
+
+            if new_item.getJSONType() == reference_item.getJSONType():
+                self._parsed[key] = new_item
+                self._keys.append(key)
+            elif new_item.getJSONType() == YJSONType.ARRAY and reference_item.getJSONType() == YJSONType.OBJECT:
+                jobj = YJSONObject(new_item._data, new_item._data_start, reference_item._data_boundary)
+                jobj.convert(reference_item, new_item)
+                self._parsed[key] = jobj
+                self._keys.append(key)
+            else:
+                raise YAPI.YAPI_Exception(YAPI.INVALID_ARGUMENT, "Unable to convert %s to %s" % (
+                    new_item.getJSONType(), reference.getJSONType()))
+
+    def getKeyFromIdx(self, i):
+        return self._keys[i]
+
+
+# noinspection PyClassHasNoInit,PyProtectedMember
 # noinspection PyUnresolvedReferences
 class YAPI:
-    #noinspection PyUnresolvedReferences
+    # noinspection PyUnresolvedReferences
     class YPCHAR(ctypes.Structure):
         _fields_ = [("buffer", ctypes.c_char_p)]
-
-    class JsonError(Exception):
-        def __init__(self, msg):
-            self.msg = msg
-            Exception.__init__(self)
-
-    #noinspection PyClassHasNoInit
-    class TJSONRECORDTYPE:
-        JSON_NONE, JSON_STRING, JSON_INTEGER, JSON_BOOLEAN, JSON_STRUCT, JSON_ARRAY = range(6)
-
-    class TJSONRECORD:
-        def __init__(self, name, datatype):
-            self.name = name
-            self.recordtype = datatype
-            self.svalue = ""
-            self.ivalue = 0
-            self.bvalue = False
-            self.members = []
-            self.items = []
-
-        def memberscount(self):
-            return len(self.members)
-
-        def itemscount(self):
-            return len(self.items)
-
-    class TJsonParser:
-
-        #noinspection PyClassHasNoInit
-        class Tjstate:
-            JSTART, JWAITFORNAME, JWAITFORENDOFNAME, JWAITFORCOLON, JWAITFORDATA, JWAITFORNEXTSTRUCTMEMBER, \
-            JWAITFORNEXTARRAYITEM, JSCOMPLETED, JWAITFORSTRINGVALUE, JWAITFORINTVALUE, JWAITFORBOOLVALUE = range(11)
-
-        def __init__(self, jsonData, withHttpHeader=True):
-            self.httpcode = 0
-            self.data = None
-            if withHttpHeader:
-                httpheader = "HTTP/1.1 "
-                okHeader = "OK\r\n"
-                CR = "\r\n"
-                if jsonData[0: len(okHeader)] == okHeader:
-                    self.httpcode = 200
-                else:
-                    if jsonData[0: len(httpheader)] != httpheader:
-                        errmsgRef = ("data should start with " + httpheader)
-                        raise YAPI.JsonError(errmsgRef)
-
-                    p1 = jsonData.find(" ", len(httpheader) - 1)
-                    p2 = jsonData.find(" ", p1 + 1)
-
-                    self.httpcode = int(jsonData[p1: p2])
-
-                    if self.httpcode != 200:
-                        return
-                        #json data is a structure
-                p1 = jsonData.find(CR + CR + "{")
-                if p1 < 0:
-                    p1 = jsonData.find(CR + CR + "[")  # json data is an array
-                if p1 < 0:
-                    errmsgRef = "data  does not contain JSON data"
-                    raise YAPI.JsonError(errmsgRef)
-                p1 += 4
-                jsonData = jsonData[p1: len(jsonData)]
-            else:
-                start_struct = jsonData.find("{")  # json data is a structure
-                start_array = jsonData.find("[")  # json data is an array
-                if start_array < 0 and start_struct < 0:
-                    errmsgRef = "data  does not contain JSON data"
-                    raise YAPI.JsonError(errmsgRef)
-            self.data = self._Parse(jsonData)
-
-        def convertToString(self, p, showNamePrefix):
-            if p is None:
-                p = self.data
-            if p.name != "" and showNamePrefix:
-                outbuffer = '"' + p.name + "\":"
-            else:
-                outbuffer = ""
-            if p.recordtype == YAPI.TJSONRECORDTYPE.JSON_STRING:
-                outbuffer = outbuffer + '"' + p.svalue + '"'
-            elif p.recordtype == YAPI.TJSONRECORDTYPE.JSON_INTEGER:
-                outbuffer += str(p.ivalue)
-            elif p.recordtype == YAPI.TJSONRECORDTYPE.JSON_BOOLEAN:
-                if p.bvalue:
-                    outbuffer += "TRUE"
-                else:
-                    outbuffer += "FALSE"
-            elif p.recordtype == YAPI.TJSONRECORDTYPE.JSON_STRUCT:
-                outbuffer += '{'
-                for i in range(len(p.members)):
-                    if i > 0:
-                        outbuffer += ','
-                    outbuffer += self.convertToString(p.members[i], True)
-                outbuffer += '}'
-            elif p.recordtype == YAPI.TJSONRECORDTYPE.JSON_ARRAY:
-                outbuffer += '['
-                for i in range(len(p.items)):
-                    if i > 0:
-                        outbuffer += ','
-                    outbuffer += self.convertToString(p.items[i], False)
-                outbuffer += ']'
-            return outbuffer
-
-        def __del__(self):
-            self._freestructure()
-
-        def GetRootNode(self):
-            return self.data
-
-        class refidx:
-            def __init__(self):
-                self.i = 0
-
-        def _Parse(self, st):
-            idx = self.refidx()
-            st = "\"root\" : " + st + " "
-            return self._ParseEx(self.Tjstate.JWAITFORNAME, "", st, idx)
-
-        @staticmethod
-        def _ParseError(st, i, errmsgRef):
-            ststart = i - 10
-            stend = i + 10
-            if ststart < 0:
-                ststart = 0
-            if stend > len(st):
-                stend = len(st) - 1
-            errmsgRef = errmsgRef + " near " + st[ststart:i] + "*" + st[i: stend]
-            raise YAPI.JsonError(errmsgRef)
-
-        @staticmethod
-        def _createStructRecord(name):
-            return YAPI.TJSONRECORD(name, YAPI.TJSONRECORDTYPE.JSON_STRUCT)
-
-        @staticmethod
-        def _createArrayRecord(name):
-            return YAPI.TJSONRECORD(name, YAPI.TJSONRECORDTYPE.JSON_ARRAY)
-
-        @staticmethod
-        def _createStrRecord(name, value):
-            res = YAPI.TJSONRECORD(name, YAPI.TJSONRECORDTYPE.JSON_STRING)
-            res.svalue = value
-            return res
-
-        @staticmethod
-        def _createIntRecord(name, value):
-            res = YAPI.TJSONRECORD(name, YAPI.TJSONRECORDTYPE.JSON_INTEGER)
-            res.ivalue = value
-            return res
-
-        @staticmethod
-        def _createBoolRecord(name, value):
-            res = YAPI.TJSONRECORD(name, YAPI.TJSONRECORDTYPE.JSON_BOOLEAN)
-            res.bvalue = value
-            return res
-
-        @staticmethod
-        def _add2StructRecord(container, element):
-            if container.recordtype != YAPI.TJSONRECORDTYPE.JSON_STRUCT:
-                raise YAPI.JsonError("container is not a struct type")
-            container.members.append(element)
-
-        @staticmethod
-        def _add2ArrayRecord(container, element):
-            if container.recordtype != YAPI.TJSONRECORDTYPE.JSON_ARRAY:
-                raise YAPI.JsonError("container is not a struct type")
-            container.items.append(element)
-
-        @staticmethod
-        def _Skipgarbage(st, idx):
-            sti = st[idx.i]
-            while idx.i < len(st) and (sti == '\n' or sti == '\r' or sti == ' '):
-                idx.i += 1
-                if idx.i < len(st):
-                    sti = st[idx.i]
-            return sti
-
-        def _ParseEx(self, initialstate, defaultname, st, idx):
-
-            res = YAPI.TJSONRECORD("", YAPI.TJSONRECORDTYPE.JSON_NONE)
-            svalue = ""
-            name = defaultname
-            state = initialstate
-            isign = 1
-            ivalue = 0
-
-            while idx.i < len(st):
-                sti = st[idx.i]
-                if state == self.Tjstate.JWAITFORNAME:
-                    if sti == "\"":
-                        state = self.Tjstate.JWAITFORENDOFNAME
-                    elif sti != " " and sti != "\n":
-                        self._ParseError(st, idx.i, "invalid char: was expecting \"")
-
-                elif state == self.Tjstate.JWAITFORENDOFNAME:
-                    if sti == "\"":
-                        state = self.Tjstate.JWAITFORCOLON
-                    elif ord(sti) >= 32:
-                        name = name + sti
-                    else:
-                        self._ParseError(st, idx.i, "invalid char: was expecting an identifier compliant char")
-
-                elif state == self.Tjstate.JWAITFORCOLON:
-                    if sti == ":":
-                        state = self.Tjstate.JWAITFORDATA
-                    elif sti != " " and sti != "\n":
-                        self._ParseError(st, idx.i, "invalid char: was expecting \"")
-
-                elif state == self.Tjstate.JWAITFORDATA:
-                    if sti == "{":
-                        res = self._createStructRecord(name)
-                        state = self.Tjstate.JWAITFORNEXTSTRUCTMEMBER
-                    elif sti == "[":
-                        res = self._createArrayRecord(name)
-                        state = self.Tjstate.JWAITFORNEXTARRAYITEM
-                    elif sti == "\"":
-                        svalue = ""
-                        state = self.Tjstate.JWAITFORSTRINGVALUE
-                    elif "0" <= sti <= "9":
-                        state = self.Tjstate.JWAITFORINTVALUE
-                        ivalue = ord(sti) - 48
-                        isign = 1
-                    elif sti == "-":
-                        state = self.Tjstate.JWAITFORINTVALUE
-                        ivalue = 0
-                        isign = -1
-                    elif sti == "t" or sti == "f" or sti == "T" or sti == "F":
-                        svalue = sti.upper()
-                        state = self.Tjstate.JWAITFORBOOLVALUE
-                    elif sti != " " and sti != "\n":
-                        self._ParseError(st, idx.i, "invalid char: was expecting  \",0..9,t or f")
-
-                elif state == self.Tjstate.JWAITFORSTRINGVALUE:
-                    if sti == "\\" and idx.i + 1 < len(st):
-                        idx.i += 1
-                        svalue = svalue + st[idx.i]
-
-                    elif sti == "\"":
-                        state = self.Tjstate.JSCOMPLETED
-                        res = self._createStrRecord(name, svalue)
-                    elif ord(sti) < 32:
-                        self._ParseError(st, idx.i, "invalid char: was expecting string value")
-                    else:
-                        svalue = svalue + sti
-
-                elif state == self.Tjstate.JWAITFORINTVALUE:
-                    if "0" <= sti <= "9":
-                        ivalue = (ivalue * 10) + ord(sti) - 48
-                    else:
-                        res = self._createIntRecord(name, isign * ivalue)
-                        state = self.Tjstate.JSCOMPLETED
-                        idx.i -= 1
-
-                elif state == self.Tjstate.JWAITFORBOOLVALUE:
-                    if sti < "A" or sti > "Z":
-                        if svalue != "TRUE" and svalue != "FALSE":
-                            self._ParseError(st, idx.i, "unexpected value, was expecting \"true\" or \"false\"")
-                        if svalue == "TRUE":
-                            res = self._createBoolRecord(name, True)
-                        else:
-                            res = self._createBoolRecord(name, False)
-                        state = self.Tjstate.JSCOMPLETED
-                        idx.i -= 1
-                    else:
-                        svalue = svalue + sti.upper()
-
-                elif state == self.Tjstate.JWAITFORNEXTSTRUCTMEMBER:
-                    sti = self._Skipgarbage(st, idx)
-                    if idx.i < len(st):
-                        if sti == "}":
-                            idx.i += 1
-                            return res
-                        else:
-                            value = self._ParseEx(self.Tjstate.JWAITFORNAME, "", st, idx)
-                            self._add2StructRecord(res, value)
-                            sti = self._Skipgarbage(st, idx)
-                            if idx.i < len(st):
-                                if sti == "}" and idx.i < len(st):
-                                    idx.i -= 1
-                                elif sti != " " and sti != "\n" and sti != ",":
-                                    self._ParseError(st, idx.i, "invalid char: vas expecting , or }")
-
-                elif state == self.Tjstate.JWAITFORNEXTARRAYITEM:
-                    sti = self._Skipgarbage(st, idx)
-                    if idx.i < len(st):
-                        if sti == "]":
-                            idx.i += 1
-                            return res
-                        else:
-                            value = self._ParseEx(self.Tjstate.JWAITFORDATA, str(len(res.items)), st, idx)
-                            self._add2ArrayRecord(res, value)
-                            sti = self._Skipgarbage(st, idx)
-                            if idx.i < len(st):
-                                if sti == "]" and idx.i < len(st):
-                                    idx.i -= 1
-                                elif sti != " " and sti != "\n" and sti != ",":
-                                    self._ParseError(st, idx.i, "invalid char: vas expecting , or ]")
-
-                elif state == self.Tjstate.JSCOMPLETED:
-                    return res
-
-                idx.i += 1
-
-            self._ParseError(st, idx.i, "unexpected end of data")
-            return None
-
-        def _DumpStructureRec(self, p, deep):
-            indent = ""
-            for i in range(0, deep * 2):
-                indent += " "
-            line = indent + p.name + ":"
-            if p.recordtype == YAPI.TJSONRECORDTYPE.JSON_STRING:
-                line = line + " str  = " + p.svalue
-                print(line)
-            elif p.recordtype == YAPI.TJSONRECORDTYPE.JSON_INTEGER:
-                line = line + " int  = " + str(p.ivalue)
-                print(line)
-            elif p.recordtype == YAPI.TJSONRECORDTYPE.JSON_BOOLEAN:
-                if p.bvalue:
-                    line += " bool = TRUE"
-                else:
-                    line += " bool = FALSE"
-                print(line)
-            elif p.recordtype == YAPI.TJSONRECORDTYPE.JSON_STRUCT:
-                print (line + " struct")
-                for i in range(0, len(p.members)):
-                    self._DumpStructureRec(p.members[i], deep + 1)
-            elif p.recordtype == YAPI.TJSONRECORDTYPE.JSON_ARRAY:
-                print(line + " array")
-                for i in range(0, len(p.items)):
-                    self._DumpStructureRec(p.items[i], deep + 1)
-
-        def _freestructure(self):
-            pass
-
-        def DumpStructure(self):
-            self._DumpStructureRec(self.data, 0)
-
-        @staticmethod
-        def GetNbChild(parent):
-            return len(parent.items)
-
-        def GetAllChilds(self, parent):
-            res = []
-            p = parent
-            if p is None:
-                p = self.data
-            if p.recordtype == YAPI.TJSONRECORDTYPE.JSON_STRUCT:
-                for i in range(0, len(p.members)):
-                    res.append(self.convertToString(p.members[i], False))
-            elif p.recordtype == YAPI.TJSONRECORDTYPE.JSON_ARRAY:
-                for i in range(0, len(p.items)):
-                    res.append(self.convertToString(p.items[i], False))
-            return res
-
-        def GetChildNode(self, parent, nodename):
-            p = parent
-            if p is None:
-                p = self.data
-
-            if p.recordtype == YAPI.TJSONRECORDTYPE.JSON_STRUCT:
-                for i in range(0, len(p.members)):
-                    if p.members[i].name == nodename:
-                        return p.members[i]
-            elif p.recordtype == YAPI.TJSONRECORDTYPE.JSON_ARRAY:
-                index = int(nodename)
-                if index >= len(p.items):
-                    raise YAPI.JsonError("index out of bounds " + nodename + ">=" + str(p.Value.itemcount))
-                return p.items[index]
-
-            return None
 
     # Switch to turn off exceptions and use return codes instead, for source-code compatibility
     # with languages without exception support like C
@@ -543,7 +751,7 @@ class YAPI:
     YOCTO_API_VERSION_STR = "1.10"
     YOCTO_API_VERSION_BCD = 0x0110
 
-    YOCTO_API_BUILD_NO = "24182"
+    YOCTO_API_BUILD_NO = "29366"
     YOCTO_DEFAULT_PORT = 4444
     YOCTO_VENDORID = 0x24e0
     YOCTO_DEVID_FACTORYBOOT = 1
@@ -557,9 +765,11 @@ class YAPI:
     YOCTO_FIRMWARE_LEN = 22
     YOCTO_LOGICAL_LEN = 20
     YOCTO_FUNCTION_LEN = 20
+    HASH_BUF_SIZE = 28
+
     # Size of the data (can be non null terminated)
     YOCTO_PUBVAL_SIZE = 6
-    #Temporary storage, > YOCTO_PUBVAL_SIZE
+    # Temporary storage, > YOCTO_PUBVAL_SIZE
     YOCTO_PUBVAL_LEN = 16
     YOCTO_PASS_LEN = 20
     YOCTO_REALM_LEN = 20
@@ -577,9 +787,9 @@ class YAPI:
     _CalibHandlers = {}
 
     #  private extern static void DllCallTest(ref yDeviceSt data);
-    #_DllCallTest = yApiCLib.DllCallTest
-    #_DllCallTest.restypes = ctypes.c_int
-    #_DllCallTest.argtypes = [ctypes.c_void_p]
+    # _DllCallTest = yApiCLib.DllCallTest
+    # _DllCallTest.restypes = ctypes.c_int
+    # _DllCallTest.argtypes = [ctypes.c_void_p]
 
     _yApiCLibFile = ""
     _yApiCLibFileFallback = ""
@@ -675,7 +885,11 @@ class YAPI:
                     YAPI._yApiCLibFile = libpath + "/cdll/libyapi-armhf.so"
                     YAPI._yApiCLibFileFallback = libpath + "/cdll/libyapi-armel.so"
                 elif machine.find("mips") >= 0:
-                    YAPI._yApiCLibFile = libpath + "/cdll/libyapi-mips.so"
+                    byteorder_str = sys.byteorder
+                    if byteorder_str.lower() == 'little':
+                        YAPI._yApiCLibFile = libpath + "/cdll/libyapi-mipsel.so"
+                    else:
+                        YAPI._yApiCLibFile = libpath + "/cdll/libyapi-mips.so"
                     YAPI._yApiCLibFileFallback = ""
                 elif machine == 'x86_32' or (machine[0] == 'i' and machine[-2:] == '86'):
                     YAPI._yApiCLibFile = libpath + "/cdll/libyapi-i386.so"
@@ -708,7 +922,7 @@ class YAPI:
 
         # try to load main librray
         libloaded = False
-        #noinspection PyBroadException
+        # noinspection PyBroadException
         try:
             YAPI._yApiCLib = ctypes.CDLL(YAPI._yApiCLibFile)
             libloaded = True
@@ -720,7 +934,7 @@ class YAPI:
 
         # try to load fallback library
         if not libloaded and YAPI._yApiCLibFileFallback != '':
-            #noinspection PyBroadException
+            # noinspection PyBroadException
             try:
                 YAPI._yApiCLib = ctypes.CDLL(YAPI._yApiCLibFileFallback)
                 libloaded = True
@@ -733,7 +947,7 @@ class YAPI:
                 "Unable to import YAPI shared library (" + YAPI._yApiCLibFile +
                 "), make sure it is available and accessible.")
 
-        #  private extern static int _yapiInitAPI(int mode, StringBuilder errmsgRef);
+        # private extern static int _yapiInitAPI(int mode, StringBuilder errmsgRef);
         YAPI._yapiInitAPI = YAPI._yApiCLib.yapiInitAPI
         YAPI._yapiInitAPI.restypes = ctypes.c_int
         YAPI._yapiInitAPI.argtypes = [ctypes.c_int, ctypes.c_char_p]
@@ -884,34 +1098,34 @@ class YAPI:
         YAPI._yapiGetFunctionInfoEx = YAPI._yApiCLib.yapiGetFunctionInfoEx
         YAPI._yapiGetFunctionInfoEx.restypes = ctypes.c_int
         YAPI._yapiGetFunctionInfoEx.argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p,
-                                              ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p]
+                                                ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p]
 
         #  private extern static int _yapiGetErrorString(int errorcode, StringBuilder buffer,
         # int maxsize, StringBuilder errmsgRef);
-        #YAPI._yapiGetErrorString = YAPI._yApiCLib.yapiGetErrorString
-        #YAPI._yapiGetErrorString.restypes = ctypes.c_int
-        #YAPI._yapiGetErrorString.argtypes = [ctypes.c_int , ctypes.c_char_p , ctypes.c_int , ctypes.c_char_p]
+        # YAPI._yapiGetErrorString = YAPI._yApiCLib.yapiGetErrorString
+        # YAPI._yapiGetErrorString.restypes = ctypes.c_int
+        # YAPI._yapiGetErrorString.argtypes = [ctypes.c_int , ctypes.c_char_p , ctypes.c_int , ctypes.c_char_p]
 
-        #YRETCODE YAPI_FUNCTION_EXPORT yapiHTTPRequestSyncStart(YIOHDL *iohdl, const char *device,
+        # YRETCODE YAPI_FUNCTION_EXPORT yapiHTTPRequestSyncStart(YIOHDL *iohdl, const char *device,
         # const char *request, char **reply, int *replysize, char *errmsg);
         YAPI._yapiHTTPRequestSyncStart = YAPI._yApiCLib.yapiHTTPRequestSyncStart
         YAPI._yapiHTTPRequestSyncStart.restypes = ctypes.c_int
         YAPI._yapiHTTPRequestSyncStart.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p,
                                                    POINTER(POINTER(ctypes.c_ubyte)), ctypes.c_void_p, ctypes.c_char_p]
 
-        #YRETCODE YAPI_FUNCTION_EXPORT yapiHTTPRequestSyncStartEx(YIOHDL *iohdl, const char *device,
+        # YRETCODE YAPI_FUNCTION_EXPORT yapiHTTPRequestSyncStartEx(YIOHDL *iohdl, const char *device,
         # const char *request, int requestsize, char **reply, int *replysize, char *errmsg);
         YAPI._yapiHTTPRequestSyncStartEx = YAPI._yApiCLib.yapiHTTPRequestSyncStartEx
         YAPI._yapiHTTPRequestSyncStartEx.restypes = ctypes.c_int
         YAPI._yapiHTTPRequestSyncStartEx.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int,
                                                      POINTER(POINTER(ctypes.c_ubyte)), ctypes.c_void_p, ctypes.c_char_p]
 
-        #YRETCODE YAPI_FUNCTION_EXPORT yapiHTTPRequestSyncDone(YIOHDL *iohdl, char *errmsg);
+        # YRETCODE YAPI_FUNCTION_EXPORT yapiHTTPRequestSyncDone(YIOHDL *iohdl, char *errmsg);
         YAPI._yapiHTTPRequestSyncDone = YAPI._yApiCLib.yapiHTTPRequestSyncDone
         YAPI._yapiHTTPRequestSyncDone.restypes = ctypes.c_int
         YAPI._yapiHTTPRequestSyncDone.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
 
-        #YRETCODE YAPI_FUNCTION_EXPORT yapiHTTPRequestAsync(const char *device, const char *request,
+        # YRETCODE YAPI_FUNCTION_EXPORT yapiHTTPRequestAsync(const char *device, const char *request,
         # yapiRequestAsyncCallback callback, void *context, char *errmsg);
         YAPI._yapiHTTPRequestAsync = YAPI._yApiCLib.yapiHTTPRequestAsync
         YAPI._yapiHTTPRequestAsync.restypes = ctypes.c_int
@@ -994,10 +1208,10 @@ class YAPI:
 
         YAPI._ydllLoaded = True
 
-    #noinspection PyUnresolvedReferences
+    # noinspection PyUnresolvedReferences
     class yDeviceSt(ctypes.Structure):
         _pack_ = 1
-        #noinspection PyTypeChecker,PyTypeChecker,PyTypeChecker,PyTypeChecker,PyTypeChecker,
+        # noinspection PyTypeChecker,PyTypeChecker,PyTypeChecker,PyTypeChecker,PyTypeChecker,
         # PyTypeChecker,PyTypeChecker,PyTypeChecker,PyTypeChecker,PyTypeChecker
         _fields_ = [("vendorid", ctypes.c_uint16),
                     ("deviceid", ctypes.c_uint16),
@@ -1010,17 +1224,17 @@ class YAPI:
                     ("firmware", ctypes.c_char * 22),  # YAPI.YOCTO_FIRMWARE_LEN),
                     ("beacon", ctypes.c_int8)]
 
-    #noinspection PyUnresolvedReferences
+    # noinspection PyUnresolvedReferences
     class YIOHDL(ctypes.Structure):
         _pack_ = 1
         _fields_ = [("raw", ctypes.c_byte)]
 
-    #noinspection PyClassHasNoInit
+    # noinspection PyClassHasNoInit
     class yDEVICE_PROP:
         PROP_VENDORID, PROP_DEVICEID, PROP_DEVRELEASE, PROP_FIRMWARELEVEL, PROP_MANUFACTURER, PROP_PRODUCTNAME, \
         PROP_SERIAL, PROP_LOGICALNAME, PROP_URL = range(9)
 
-    #noinspection PyClassHasNoInit
+    # noinspection PyClassHasNoInit
     class yFACE_STATUS:
         YFACE_EMPTY, YFACE_RUNNING, YFACE_ERROR = range(3)
 
@@ -1073,15 +1287,15 @@ class YAPI:
             global yHubDiscoveryCallback
             if self.ev == self.ARRIVAL:
                 if yArrivalFct is not None:
-                    #noinspection PyCallingNonCallable
+                    # noinspection PyCallingNonCallable
                     yArrivalFct(self.module)
             elif self.ev == self.REMOVAL:
                 if yRemovalFct is not None:
-                    #noinspection PyCallingNonCallable
+                    # noinspection PyCallingNonCallable
                     yRemovalFct(self.module)
             elif self.ev == self.CHANGE:
                 if yChangeFct is not None:
-                    #noinspection PyCallingNonCallable
+                    # noinspection PyCallingNonCallable
                     yChangeFct(self.module)
             elif self.ev == self.HUB_DISCOVERY:
                 if yHubDiscoveryCallback is not None:
@@ -1144,13 +1358,13 @@ class YAPI:
             return True
         return False
 
-    #noinspection PyClassHasNoInit
+    # noinspection PyClassHasNoInit
     class blockingCallbackCtx:
         res = 0
         response = ""
         errmsgRef = ""
 
-    #noinspection PyUnusedLocal
+    # noinspection PyUnusedLocal
     @staticmethod
     def YblockingCallback(device, context, returnval, result, errmsgRef):
         context.res = returnval
@@ -1168,16 +1382,16 @@ class YAPI:
         """
         #### for python, since some implementations don't support 64bits integers
         #### GetTickCount returns a datetime object instead of a u64
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         return datetime.datetime.today()
 
     @staticmethod
     def SetTraceFile(filename):
         fname = ctypes.create_string_buffer(filename.encode("ASCII"))
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         YAPI._yapiSetTraceFile(fname)
 
-    #noinspection PyUnresolvedReferences
+    # noinspection PyUnresolvedReferences
     @staticmethod
     def Sleep(ms_duration, errmsgRef=None):
         """
@@ -1212,7 +1426,7 @@ class YAPI:
                 return res
 
             if YAPI.GetTickCount() < timeout:
-                #noinspection PyUnresolvedReferences
+                # noinspection PyUnresolvedReferences
                 res = YAPI._yapiSleep(2, errBuffer)
                 if YAPI.YISERR(res):
                     if not errmsgRef is None:
@@ -1236,7 +1450,7 @@ class YAPI:
 
         @return true if the name is valid, false otherwise.
         """
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         if not YAPI._yapiCheckLogicalName(name.encode("ASCII")):
             return False
         return True
@@ -1244,20 +1458,20 @@ class YAPI:
     @staticmethod
     def yapiLockFunctionCallBack(errmsgRef=None):
         errBuffer = ctypes.create_string_buffer(YAPI.YOCTO_ERRMSG_LEN)
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         res = YAPI._yapiLockFunctionCallBack(errBuffer)
         if errmsgRef is not None:
-            #noinspection PyAttributeOutsideInit
+            # noinspection PyAttributeOutsideInit
             errmsgRef.value = YByte2String(errBuffer.value)
         return res
 
     @staticmethod
     def yapiUnlockFunctionCallBack(errmsgRef=None):
         errBuffer = ctypes.create_string_buffer(YAPI.YOCTO_ERRMSG_LEN)
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         res = YAPI._yapiUnlockFunctionCallBack(errBuffer)
         if not errmsgRef is None:
-            #noinspection PyAttributeOutsideInit
+            # noinspection PyAttributeOutsideInit
             errmsgRef.value = YByte2String(errBuffer.value)
         return res
 
@@ -1414,13 +1628,13 @@ class YAPI:
 
     @staticmethod
     def _bytesToHexStr(bindata):
-        return binascii.hexlify(bindata).upper()
+        return YByte2String(binascii.hexlify(bindata)).upper()
 
     @staticmethod
     def _hexStrToBin(hex_str):
-        return binascii.unhexlify(hex_str)
+        return binascii.unhexlify(YString2Byte(hex_str))
 
-    #noinspection PyUnresolvedReferences
+    # noinspection PyUnresolvedReferences
     @staticmethod
     def HandleEvents(errmsgRef=None):
         """
@@ -1442,11 +1656,16 @@ class YAPI:
         """
         errBuffer = ctypes.create_string_buffer(YAPI.YOCTO_ERRMSG_LEN)
 
-        #noinspection PyUnresolvedReferences
+        if not YAPI._apiInitialized:
+            if errmsgRef is not None:
+                errmsgRef.value = "API not initialized"
+            return YAPI.NOT_INITIALIZED
+
+        # noinspection PyUnresolvedReferences
         res = YAPI._yapiHandleEvents(errBuffer)
         if YAPI.YISERR(res):
             if errmsgRef is not None:
-                #noinspection PyAttributeOutsideInit
+                # noinspection PyAttributeOutsideInit
                 errmsgRef.value = YByte2String(errBuffer.value)
             return res
 
@@ -1464,7 +1683,7 @@ class YAPI:
     @staticmethod
     def yapiUpdateDeviceList(force, errmsgRef=None):
         errmsg_buffer = ctypes.create_string_buffer(YAPI.YOCTO_ERRMSG_LEN)
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         res = YAPI._yapiUpdateDeviceList(force, errmsg_buffer)
         if YAPI.YISERR(res):
             if not errmsgRef is None:
@@ -1475,7 +1694,7 @@ class YAPI:
     def apiGetFunctionsByDevice(devdesc, precFuncDesc, dbuffer, maxsize, neededsizeRef, errmsgRef):
         errmsg_buffer = ctypes.create_string_buffer(YAPI.YOCTO_ERRMSG_LEN)
         neededsize = ctypes.c_int()
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         res = YAPI._yapiGetFunctionsByDevice(devdesc, precFuncDesc, dbuffer,
                                              maxsize, ctypes.byref(neededsize), errmsg_buffer)
         neededsizeRef.value = neededsize.value
@@ -1505,14 +1724,14 @@ class YAPI:
         YAPI.ExceptionsDisabled = False
 
     # - Internal callback registered into YAPI
-    #noinspection PyUnusedLocal
+    # noinspection PyUnusedLocal
     @staticmethod
     def native_yLogFunction(log, loglen):
 
         global yLogFct
         if yLogFct is not None:
-            #noinspection PyCallingNonCallable
-            yLogFct(YByte2String(log))
+            # noinspection PyCallingNonCallable
+            yLogFct(y_byte_string)
         return 0
 
     @staticmethod
@@ -1545,7 +1764,7 @@ class YAPI:
     @staticmethod
     def yapiGetDeviceInfo(d, infos, errmsgRef=None):
         errmsg_buffer = ctypes.create_string_buffer(YAPI.YOCTO_ERRMSG_LEN)
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         res = YAPI._yapiGetDeviceInfo(d, ctypes.byref(infos), errmsg_buffer)
         if errmsgRef is not None:
             errmsgRef.value = YByte2String(errmsg_buffer.value)
@@ -1588,20 +1807,20 @@ class YAPI:
     @staticmethod
     def yapiLockDeviceCallBack(errmsgRef=None):
         errmsg_buffer = ctypes.create_string_buffer(YAPI.YOCTO_ERRMSG_LEN)
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         res = YAPI._yapiLockDeviceCallBack(errmsg_buffer)
         if errmsgRef is not None:
-            #noinspection PyAttributeOutsideInit
+            # noinspection PyAttributeOutsideInit
             errmsgRef.value = YByte2String(errmsg_buffer.value)
         return res
 
     @staticmethod
     def yapiUnlockDeviceCallBack(errmsgRef=None):
         errmsg_buffer = ctypes.create_string_buffer(YAPI.YOCTO_ERRMSG_LEN)
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         res = YAPI._yapiUnlockDeviceCallBack(errmsg_buffer)
         if errmsgRef is not None:
-            #noinspection PyAttributeOutsideInit
+            # noinspection PyAttributeOutsideInit
             errmsgRef.value = YByte2String(errmsg_buffer.value)
         return res
 
@@ -1650,8 +1869,8 @@ class YAPI:
         network hub (this URL can be passed to RegisterHub). This callback will be invoked
         while yUpdateDeviceList is running. You will have to call this function on a regular basis.
 
-        @param hubDiscoveryCallback : a procedure taking two string parameter, or None
-                to unregister a previously registered  callback.
+        @param hubDiscoveryCallback : a procedure taking two string parameter, the serial
+                number and the hub URL. Use None to unregister a previously registered  callback.
         """
         global yHubDiscoveryCallback
         yHubDiscoveryCallback = hubDiscoveryCallback
@@ -1659,7 +1878,7 @@ class YAPI:
         YAPI.TriggerHubDiscovery(errmsgRef)
         return 0
 
-    #noinspection PyUnresolvedReferences
+    # noinspection PyUnresolvedReferences
     @staticmethod
     def native_yDeviceChangeCallback(d):
         global yChangeFct
@@ -1709,7 +1928,7 @@ class YAPI:
         key = str(calibType)
         YAPI._CalibHandlers[key] = callback
 
-    #noinspection PyUnusedLocal
+    # noinspection PyUnusedLocal
     @staticmethod
     def LinearCalibrationHandler(rawValue, calibType, params, rawValues, refValues):
         x = rawValues[0]
@@ -1734,7 +1953,7 @@ class YAPI:
                 adj = adj2 + (adj - adj2) * (rawValue - x2) / (x - x2)
         return rawValue + adj
 
-    #noinspection PyUnresolvedReferences
+    # noinspection PyUnresolvedReferences
     @staticmethod
     def native_yDeviceRemovalCallback(d):
         global yRemovalFct
@@ -1755,12 +1974,45 @@ class YAPI:
     def apiGetAPIVersion(versionRef, dateRef):
         pversion = YAPI.YPCHAR()
         pdate = YAPI.YPCHAR()
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         res = YAPI._yapiGetAPIVersion(ctypes.byref(pversion), ctypes.byref(pdate))
-        #noinspection PyAttributeOutsideInit
+        # noinspection PyAttributeOutsideInit
         versionRef.value = YByte2String(pversion.buffer)
         dateRef.value = YByte2String(pdate.buffer)
         return res
+
+    @staticmethod
+    def parseHTTP(data, start, stop):
+        httpheader = "HTTP/1.1 "
+        okHeader = "OK\r\n"
+        CR = "\r\n"
+        if (stop - start) > len(okHeader) and data[start: start + len(okHeader)] == okHeader:
+            httpcode = 200
+            errmsg = ""
+        else:
+            if (stop - start) < len(httpheader) or data[start: start + len(httpheader)] != httpheader:
+                errmsg = "data should start with " + httpheader
+                headerlen = 0
+                return -1, headerlen, errmsg
+            p1 = data.find(" ", start + len(httpheader) - 1)
+            p2 = data.find(" ", p1 + 1)
+            if p1 < 0 or p2 < 0:
+                errmsg = "Invalid HTTP header (invalid first line)"
+                headerlen = 0
+                return -1, headerlen, errmsg
+            httpcode = YAPI._atoi(data[p1: p2])
+            if httpcode != 200:
+                errmsg = "Unexpected HTTP return code:%d" % httpcode
+            else:
+                errmsg = ""
+        p1 = data.find(CR + CR, start)  # json data is a structure
+        if p1 < 0:
+            errmsg = "Invalid HTTP header (missing header end)"
+            headerlen = 0
+            return -1, headerlen, errmsg
+
+        headerlen = p1 + 4
+        return httpcode, headerlen, errmsg
 
     @staticmethod
     def GetAPIVersion():
@@ -1782,11 +2034,11 @@ class YAPI:
         """
         version = YRefParam()
         date = YRefParam()
-        #load yapi functions form dynamic library
+        # load yapi functions form dynamic library
         if not YAPI._ydllLoaded:
             YAPI.yloadYapiCDLL()
         YAPI.apiGetAPIVersion(version, date)
-        #noinspection PyTypeChecker
+        # noinspection PyTypeChecker
         return YAPI.YOCTO_API_VERSION_STR + "." + YAPI.YOCTO_API_BUILD_NO + " (" + version.value + ")"
 
     @staticmethod
@@ -1814,7 +2066,7 @@ class YAPI:
         errmsg_buffer = ctypes.create_string_buffer(YAPI.YOCTO_ERRMSG_LEN)
         if YAPI._apiInitialized:
             return YAPI.SUCCESS
-            #load yapi functions form dynamic library
+            # load yapi functions form dynamic library
         if not YAPI._ydllLoaded:
             YAPI.yloadYapiCDLL()
         version = YRefParam()
@@ -1824,34 +2076,34 @@ class YAPI:
                 errmsg.value \
                     = YAPI._yApiCLibFile + " does does not match the version of the Libary (Libary=" + \
                       YAPI.YOCTO_API_VERSION_STR + "." + YAPI.YOCTO_API_BUILD_NO
-                #noinspection PyTypeChecker
+                # noinspection PyTypeChecker
                 errmsg.value += " yapi.dll=" + version.value + ")"
                 return YAPI.VERSION_MISMATCH
 
         YAPI.pymodule_initialization()
 
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         res = YAPI._yapiInitAPI(mode, errmsg_buffer)
         if errmsg is not None:
             errmsg.value = YByte2String(errmsg_buffer.value)
         if YAPI.YISERR(res):
             return res
 
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         YAPI._yapiRegisterDeviceArrivalCallback(native_yDeviceArrivalAnchor)
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         YAPI._yapiRegisterDeviceRemovalCallback(native_yDeviceRemovalAnchor)
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         YAPI._yapiRegisterDeviceChangeCallback(native_yDeviceChangeAnchor)
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         YAPI._yapiRegisterFunctionUpdateCallback(native_yFunctionUpdateAnchor)
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         YAPI._yapiRegisterTimedReportCallback(native_yTimedReportAnchor)
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         YAPI._yapiRegisterLogFunction(native_yLogFunctionAnchor)
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         YAPI._yapiRegisterHubDiscoveryCallback(native_yHubDiscoveryAnchor)
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         YAPI._yapiRegisterDeviceLogCallback(native_yDeviceLogAnchor)
 
         for i in range(21):
@@ -1871,7 +2123,7 @@ class YAPI:
         yFreeAPI(), or your program will crash.
         """
         if YAPI._apiInitialized:
-            #noinspection PyUnresolvedReferences
+            # noinspection PyUnresolvedReferences
             YAPI._yapiFreeAPI()
             YAPI.pymodule_cleanup()
             YFunction._ClearCache()
@@ -1929,7 +2181,7 @@ class YAPI:
             if YAPI.YISERR(res):
                 return res
         p = ctypes.create_string_buffer(url.encode("ASCII"))
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         res = YAPI._yapiRegisterHub(p, errmsg_buffer)
         if YAPI.YISERR(res):
             if errmsg is not None:
@@ -1959,7 +2211,7 @@ class YAPI:
             res = YAPI.InitAPI(0, errmsgRef)
             if YAPI.YISERR(res):
                 return res
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         res = YAPI._yapiPreregisterHub(ctypes.create_string_buffer(url.encode("ASCII")), errmsg_buffer)
         if YAPI.YISERR(res):
             if errmsgRef is not None:
@@ -1978,7 +2230,7 @@ class YAPI:
         if not YAPI._apiInitialized:
             return
 
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         YAPI._yapiUnregisterHub(ctypes.create_string_buffer(url.encode("ASCII")))
 
     @staticmethod
@@ -2002,7 +2254,7 @@ class YAPI:
         if not YAPI._ydllLoaded:
             YAPI.yloadYapiCDLL()
 
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         res = YAPI._yapiTestHub(ctypes.create_string_buffer(url.encode("ASCII")), mstimeout, errmsg_buffer)
         if YAPI.YISERR(res):
             if errmsgRef is not None:
@@ -2034,11 +2286,11 @@ class YAPI:
         res = YAPI.yapiUpdateDeviceList(0, errmsg)
         if YAPI.YISERR(res):
             return res
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         res = YAPI._yapiHandleEvents(errmsg_buffer)
         if YAPI.YISERR(res):
             if errmsg is not None:
-                #noinspection PyAttributeOutsideInit
+                # noinspection PyAttributeOutsideInit
                 errmsg.value = YByte2String(errmsg_buffer.value)
             return res
         while len(YAPI._PlugEvents) > 0:
@@ -2051,7 +2303,7 @@ class YAPI:
     @staticmethod
     def TriggerHubDiscovery(errmsg=None):
         """
-        Force a hub discovery, if a callback as been registered with yRegisterDeviceRemovalCallback it
+        Force a hub discovery, if a callback as been registered with yRegisterHubDiscoveryCallback it
         will be called for each net work hub that will respond to the discovery.
 
         @param errmsg : a string passed by reference to receive any error message.
@@ -2078,9 +2330,9 @@ class YAPI:
         funcValBuffer = ctypes.create_string_buffer(YAPI.YOCTO_PUBVAL_LEN)
         errBuffer = ctypes.create_string_buffer(YAPI.YOCTO_ERRMSG_LEN)
         p = ctypes.c_int()
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         res = YAPI._yapiGetFunctionInfoEx(fundesc, ctypes.byref(p), serialBuffer, funcIdBuffer, None,
-                                        funcNameBuffer, funcValBuffer, errBuffer)
+                                          funcNameBuffer, funcValBuffer, errBuffer)
         devdescRef.value = p.value
         serialRef.value = YByte2String(serialBuffer.value)
         funcIdRef.value = YByte2String(funcIdBuffer.value)
@@ -2091,7 +2343,8 @@ class YAPI:
         return res
 
     @staticmethod
-    def yapiGetFunctionInfoEx(fundesc, devdescRef, serialRef, funcIdRef, baseTypeRef, funcNameRef, funcValRef, errmsgRef=None):
+    def yapiGetFunctionInfoEx(fundesc, devdescRef, serialRef, funcIdRef, baseTypeRef, funcNameRef, funcValRef,
+                              errmsgRef=None):
         serialBuffer = ctypes.create_string_buffer(YAPI.YOCTO_SERIAL_LEN)
         funcIdBuffer = ctypes.create_string_buffer(YAPI.YOCTO_FUNCTION_LEN)
         baseTypeBuffer = ctypes.create_string_buffer(YAPI.YOCTO_FUNCTION_LEN)
@@ -2099,9 +2352,9 @@ class YAPI:
         funcValBuffer = ctypes.create_string_buffer(YAPI.YOCTO_PUBVAL_LEN)
         errBuffer = ctypes.create_string_buffer(YAPI.YOCTO_ERRMSG_LEN)
         p = ctypes.c_int()
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         res = YAPI._yapiGetFunctionInfoEx(fundesc, ctypes.byref(p), serialBuffer, funcIdBuffer, baseTypeBuffer,
-                                        funcNameBuffer, funcValBuffer, errBuffer)
+                                          funcNameBuffer, funcValBuffer, errBuffer)
         devdescRef.value = p.value
         serialRef.value = YByte2String(serialBuffer.value)
         funcIdRef.value = YByte2String(funcIdBuffer.value)
@@ -2116,7 +2369,9 @@ class YAPI:
     def yapiGetDeviceByFunction(fundesc, errmsgRef=None):
         errBuffer = ctypes.create_string_buffer(YAPI.YOCTO_ERRMSG_LEN)
         devdesc = ctypes.c_int()
-        #noinspection PyUnresolvedReferences
+        if not YAPI._ydllLoaded:
+            YAPI.yloadYapiCDLL()
+        # noinspection PyUnresolvedReferences
         res = YAPI._yapiGetFunctionInfoEx(fundesc, ctypes.byref(devdesc), None, None, None, None, None, errBuffer)
         if errmsgRef is not None:
             errmsgRef.value = YByte2String(errBuffer.value)
@@ -2127,7 +2382,7 @@ class YAPI:
     @staticmethod
     def yapiUpdateDeviceList(force, errmsgRef=None):
         errmsg_buffer = ctypes.create_string_buffer(YAPI.YOCTO_ERRMSG_LEN)
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         res = YAPI._yapiUpdateDeviceList(force, errmsg_buffer)
         if YAPI.YISERR(res):
             if errmsgRef is not None:
@@ -2138,7 +2393,9 @@ class YAPI:
     def yapiGetDevice(device_str, errmsgRef=None):
         errmsg_buffer = ctypes.create_string_buffer(YAPI.YOCTO_ERRMSG_LEN)
         p = ctypes.create_string_buffer(device_str.encode("ASCII"))
-        #noinspection PyUnresolvedReferences
+        if not YAPI._ydllLoaded:
+            YAPI.yloadYapiCDLL()
+        # noinspection PyUnresolvedReferences
         res = YAPI._yapiGetDevice(p, errmsg_buffer)
         if errmsgRef is not None:
             errmsgRef.value = YByte2String(errmsg_buffer.value)
@@ -2147,7 +2404,9 @@ class YAPI:
     @staticmethod
     def yapiGetFunction(class_str, function_str, errmsgRef=None):
         errmsg_buffer = ctypes.create_string_buffer(YAPI.YOCTO_ERRMSG_LEN)
-        #noinspection PyUnresolvedReferences
+        if not YAPI._ydllLoaded:
+            YAPI.yloadYapiCDLL()
+        # noinspection PyUnresolvedReferences
         res = YAPI._yapiGetFunction(ctypes.create_string_buffer(class_str.encode("ASCII")),
                                     ctypes.create_string_buffer(function_str.encode("ASCII")), errmsg_buffer)
         if errmsgRef is not None:
@@ -2158,10 +2417,12 @@ class YAPI:
     def apiGetFunctionsByClass(class_str, precFuncDesc, dbuffer, maxsize, neededsizeRef, errmsgRef=None):
         errmsg_buffer = ctypes.create_string_buffer(YAPI.YOCTO_ERRMSG_LEN)
         cneededsize = ctypes.c_int()
-        #noinspection PyUnresolvedReferences
+        if not YAPI._ydllLoaded:
+            YAPI.yloadYapiCDLL()
+        # noinspection PyUnresolvedReferences
         res = YAPI._yapiGetFunctionsByClass(ctypes.create_string_buffer(class_str.encode("ASCII")), precFuncDesc,
                                             dbuffer, maxsize, ctypes.byref(cneededsize), errmsg_buffer)
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         neededsizeRef.value = cneededsize.value
         if errmsgRef is not None:
             errmsgRef.value = YByte2String(errmsg_buffer.value)
@@ -2171,10 +2432,12 @@ class YAPI:
     def apiGetFunctionsByDevice(devdesc, precFuncDesc, dbuffer, maxsize, neededsizeRef, errmsgRef=None):
         errmsg_buffer = ctypes.create_string_buffer(YAPI.YOCTO_ERRMSG_LEN)
         cneededsize = ctypes.c_int()
-        #noinspection PyUnresolvedReferences
+        if not YAPI._ydllLoaded:
+            YAPI.yloadYapiCDLL()
+        # noinspection PyUnresolvedReferences
         res = YAPI._yapiGetFunctionsByDevice(devdesc, precFuncDesc, dbuffer, maxsize, ctypes.byref(cneededsize),
                                              errmsg_buffer)
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         neededsizeRef.value = cneededsize.value
         if errmsgRef is not None:
             errmsgRef.value = YByte2String(errmsg_buffer.value)
@@ -2192,7 +2455,7 @@ class YAPI:
         YFunction._CalibHandlers.clear()
 
 
-#--- (generated code: YFirmwareUpdate class start)
+# --- (generated code: YFirmwareUpdate class start)
 #noinspection PyProtectedMember
 class YFirmwareUpdate(object):
     """
@@ -2202,11 +2465,11 @@ class YFirmwareUpdate(object):
 
     """
 #--- (end of generated code: YFirmwareUpdate class start)
-    #--- (generated code: YFirmwareUpdate definitions)
+    # --- (generated code: YFirmwareUpdate definitions)
     #--- (end of generated code: YFirmwareUpdate definitions)
 
     def __init__(self, serial, path, settings):
-        #--- (generated code: YFirmwareUpdate attributes)
+        # --- (generated code: YFirmwareUpdate attributes)
         self._serial = ''
         self._settings = ''
         self._firmwarepath = ''
@@ -2220,7 +2483,7 @@ class YFirmwareUpdate(object):
         self._settings = settings
         self._firmwarepath = path
 
-    #--- (generated code: YFirmwareUpdate implementation)
+    # --- (generated code: YFirmwareUpdate implementation)
     def _processMore(self, newupdate):
         errmsg = ctypes.create_string_buffer(YAPI.YOCTO_ERRMSG_LEN)
         # m
@@ -2230,7 +2493,7 @@ class YFirmwareUpdate(object):
         # settings
         # prod_prefix
         # force
-        if self._progress_c < 100:
+        if (self._progress_c < 100) and (self._progress_c != YAPI.VERSION_MISMATCH):
             serial = self._serial
             firmwarepath = self._firmwarepath
             settings = YByte2String(self._settings)
@@ -2239,6 +2502,10 @@ class YFirmwareUpdate(object):
             else:
                 force = 0
             res = YAPI._yapiUpdateFirmwareEx(ctypes.create_string_buffer(YString2Byte(serial)), ctypes.create_string_buffer(YString2Byte(firmwarepath)), ctypes.create_string_buffer(YString2Byte(settings)), force, newupdate, errmsg)
+            if (res == YAPI.VERSION_MISMATCH) and (len(self._settings) != 0):
+                self._progress_c = res
+                self._progress_msg = YByte2String(errmsg.value)
+                return self._progress
             if res < 0:
                 self._progress = res
                 self._progress_msg = YByte2String(errmsg.value)
@@ -2261,12 +2528,15 @@ class YFirmwareUpdate(object):
                     else:
                         self._progress = 95
                 if self._progress < 100:
-                    #
                     m.set_allSettingsAndFiles(self._settings)
                     m.saveToFlash()
                     self._settings = bytearray(0)
-                    self._progress = 100
-                    self._progress_msg = "success"
+                    if self._progress_c == YAPI.VERSION_MISMATCH:
+                        self._progress = YAPI.IO_ERROR
+                        self._progress_msg = "Unable to update firmware"
+                    else:
+                        self._progress =  100
+                        self._progress_msg = "success"
             else:
                 self._progress =  100
                 self._progress_msg = "success"
@@ -2400,11 +2670,11 @@ class YFirmwareUpdate(object):
         return self._progress
 
 #--- (end of generated code: YFirmwareUpdate implementation)
-#--- (generated code: FirmwareUpdate functions)
-#--- (end of generated code: FirmwareUpdate functions)
+# --- (generated code: YFirmwareUpdate functions)
+#--- (end of generated code: YFirmwareUpdate functions)
 
 
-#--- (generated code: YDataStream class start)
+# --- (generated code: YDataStream class start)
 #noinspection PyProtectedMember
 class YDataStream(object):
     """
@@ -2420,14 +2690,14 @@ class YDataStream(object):
 
     """
 #--- (end of generated code: YDataStream class start)
-    #--- (generated code: YDataStream definitions)
+    # --- (generated code: YDataStream definitions)
     #--- (end of generated code: YDataStream definitions)
 
     DATA_INVALID = YAPI.INVALID_DOUBLE
     DURATION_INVALID = -1
 
     def __init__(self, parent, dataset=None, encoded=None):
-        #--- (generated code: YDataStream attributes)
+        # --- (generated code: YDataStream attributes)
         self._parent = None
         self._runNo = 0
         self._utcStamp = 0
@@ -2459,7 +2729,7 @@ class YDataStream(object):
         if dataset is not None:
             self._initFromDataSet(dataset, encoded)
 
-    #--- (generated code: YDataStream implementation)
+    # --- (generated code: YDataStream implementation)
     def _initFromDataSet(self, dataset, encoded):
         # val
         # i
@@ -2574,7 +2844,7 @@ class YDataStream(object):
         if len(sdata) == 0:
             self._nRows = 0
             return YAPI.SUCCESS
-        # // may throw an exception
+
         udat = YAPI._decodeWords(self._parent._json_get_string(sdata))
         del self._values[:]
         idx = 0
@@ -2615,12 +2885,11 @@ class YDataStream(object):
         return url
 
     def loadStream(self):
-        # // may throw an exception
         return self._parseStream(self._parent._download(self._get_url()))
 
     def _decodeVal(self, w):
         # val
-        val = w
+        val = w if w <= 0x7fffffff else -0x100000000 + w
         if self._isScal32:
             val = val / 1000.0
         else:
@@ -2629,12 +2898,13 @@ class YDataStream(object):
             else:
                 val = YAPI._decimalToDouble(w)
         if self._caltyp != 0:
-            val = self._calhdl(val, self._caltyp, self._calpar, self._calraw, self._calref)
+            if self._calhdl is not None:
+                val = self._calhdl(val, self._caltyp, self._calpar, self._calraw, self._calref)
         return val
 
     def _decodeAvg(self, dw, count):
         # val
-        val = dw
+        val = dw if dw <= 0x7fffffff else -0x100000000 + dw
         if self._isScal32:
             val = val / 1000.0
         else:
@@ -2643,7 +2913,8 @@ class YDataStream(object):
             else:
                 val = val / (count * self._decexp)
         if self._caltyp != 0:
-            val = self._calhdl(val, self._caltyp, self._calpar, self._calraw, self._calref)
+            if self._calhdl is not None:
+                val = self._calhdl(val, self._caltyp, self._calpar, self._calraw, self._calref)
         return val
 
     def isClosed(self):
@@ -2856,11 +3127,11 @@ class YDataStream(object):
         return self._values[row][col]
 
 #--- (end of generated code: YDataStream implementation)
-#--- (generated code: DataStream functions)
-#--- (end of generated code: DataStream functions)
+# --- (generated code: YDataStream functions)
+#--- (end of generated code: YDataStream functions)
 
 
-#--- (generated code: YMeasure class start)
+# --- (generated code: YMeasure class start)
 #noinspection PyProtectedMember
 class YMeasure(object):
     """
@@ -2870,11 +3141,11 @@ class YMeasure(object):
 
     """
 #--- (end of generated code: YMeasure class start)
-    #--- (generated code: YMeasure definitions)
+    # --- (generated code: YMeasure definitions)
     #--- (end of generated code: YMeasure definitions)
 
     def __init__(self, start, end, minVal, avgVal, maxVal):
-        #--- (generated code: YMeasure attributes)
+        # --- (generated code: YMeasure attributes)
         self._start = 0
         self._end = 0
         self._minVal = 0
@@ -2901,7 +3172,7 @@ class YMeasure(object):
         """
         return self._end_datetime
 
-    #--- (generated code: YMeasure implementation)
+    # --- (generated code: YMeasure implementation)
     def get_startTimeUTC(self):
         """
         Returns the start time of the measure, relative to the Jan 1, 1970 UTC
@@ -2953,11 +3224,11 @@ class YMeasure(object):
 
 #--- (end of generated code: YMeasure implementation)
 
-#--- (generated code: Measure functions)
-#--- (end of generated code: Measure functions)
+# --- (generated code: YMeasure functions)
+#--- (end of generated code: YMeasure functions)
 
 
-#--- (generated code: YDataSet class start)
+# --- (generated code: YDataSet class start)
 #noinspection PyProtectedMember
 class YDataSet(object):
     """
@@ -2979,11 +3250,11 @@ class YDataSet(object):
 
     """
 #--- (end of generated code: YDataSet class start)
-    #--- (generated code: YDataSet definitions)
+    # --- (generated code: YDataSet definitions)
     #--- (end of generated code: YDataSet definitions)
 
     def __init__(self, parent, functionId=None, unit=None, starttime=None, endTime=None):
-        #--- (generated code: YDataSet attributes)
+        # --- (generated code: YDataSet attributes)
         self._parent = None
         self._hardwareId = ''
         self._functionId = ''
@@ -3017,11 +3288,14 @@ class YDataSet(object):
         self._endTime = 0
 
     def _parse(self, json):
-        try:
-            j = YAPI.TJsonParser(json, False)
-        except YAPI.JsonError:
-            #( exception handling working in both  in 2.x and 3.x)
-            return
+        p = YJSONObject(json, 0, len(json))
+        if not YAPI.ExceptionsDisabled:
+            p.parse()
+        else:
+            try:
+                p.parse()
+            except Exception:
+                return YAPI.IO_ERROR
 
         summaryMinVal = float('inf')
         summaryMaxVal = float('-inf')
@@ -3031,69 +3305,60 @@ class YDataSet(object):
         streamEndTime = 0
         startTime = 0x7fffffff
         endTime = 0
-        node = j.GetRootNode()
+        self._functionId = p.getString("id")
+        self._unit = p.getString("unit")
+        if p.has("calib"):
+            self._calib = YAPI._decodeFloats(p.getString("calib"))
+            self._calib[0] = round(self._calib[0] / 1000)
+        else:
+            self._calib = YAPI._decodeWords(p.getString("cal"))
+        arr = p.getYJSONArray("streams")
+        self._streams = []
+        self._preview = []
+        self._measures = []
+        for i in range(0, arr.length()):
+            stream = self._parent._findDataStream(self, arr.getString(i))
+            streamStartTime = stream.get_startTimeUTC() - stream.get_dataSamplesIntervalMs() / 1000
+            streamEndTime = stream.get_startTimeUTC() + stream.get_duration()
+            if self._startTime > 0 and streamEndTime <= self._startTime:
+                # this stream is too early, drop it
+                pass
+            elif 0 < self._endTime < stream.get_startTimeUTC():
+                # this stream is too late, drop it
+                pass
+            else:
+                self._streams.append(stream)
+                if startTime > streamStartTime:
+                    startTime = streamStartTime
+                if endTime < streamEndTime:
+                    endtime = streamEndTime
+                if stream.isClosed() and stream.get_startTimeUTC() >= self._startTime \
+                        and (self._endTime == 0 or streamEndTime <= self._endTime):
+                    if summaryMinVal > stream.get_minValue():
+                        summaryMinVal = stream.get_minValue()
+                    if summaryMaxVal < stream.get_maxValue():
+                        summaryMaxVal = stream.get_maxValue()
+                    summaryTotalAvg += stream.get_averageValue() * stream.get_duration()
+                    summaryTotalTime += stream.get_duration()
 
-        if node.recordtype != YAPI.TJSONRECORDTYPE.JSON_STRUCT:
-            return
-        for member in node.members:
-            if member.name == "id":
-                self._functionId = member.svalue
-            elif member.name == "unit":
-                self._unit = member.svalue
-            elif member.name == "calib":
-                self._calib = YAPI._decodeFloats(member.svalue)
-                self._calib[0] = round(self._calib[0] / 1000)
-            elif member.name == "cal":
-                if len(self._calib) == 0:
-                    self._calib = YAPI._decodeWords(member.svalue)
-            elif member.name == "streams":
-                self._streams = []
-                self._preview = []
-                self._measures = []
-                streams_node = j.GetChildNode(node, "streams")
-                for streams_json in streams_node.items:
-                    stream = self._parent._findDataStream(self, streams_json.svalue)
-                    streamStartTime = stream.get_startTimeUTC() - stream.get_dataSamplesIntervalMs() / 1000
-                    streamEndTime = stream.get_startTimeUTC() + stream.get_duration()
-                    if self._startTime > 0 and streamEndTime <= self._startTime:
-                        # this stream is too early, drop it
-                        pass
-                    elif 0 < self._endTime < stream.get_startTimeUTC():
-                        # this stream is too late, drop it
-                        pass
-                    else:
-                        self._streams.append(stream)
-                        if startTime > streamStartTime:
-                            startTime = streamStartTime
-                        if endTime < streamEndTime:
-                            endtime = streamEndTime
-                        if (stream.isClosed() and stream.get_startTimeUTC() >= self._startTime and
-                                (self._endTime == 0 or streamEndTime <= self._endTime)):
-                            if summaryMinVal > stream.get_minValue():
-                                summaryMinVal = stream.get_minValue()
-                            if summaryMaxVal < stream.get_maxValue():
-                                summaryMaxVal = stream.get_maxValue()
-                            summaryTotalAvg += stream.get_averageValue() * stream.get_duration()
-                            summaryTotalTime += stream.get_duration()
-
-                            rec = YMeasure(stream.get_startTimeUTC(),
-                                           streamEndTime,
-                                           stream.get_minValue(),
-                                           stream.get_averageValue(),
-                                           stream.get_maxValue())
-                            self._preview.append(rec)
-                if (len(self._streams) > 0) and (summaryTotalTime > 0):
-                    # update time boundaries with actual data
-                    if self._startTime < startTime:
-                        self._startTime = startTime
-                    if self._endTime == 0 or self._endTime > endTime:
-                        self._endTime = endTime
-                    self._summary = YMeasure(self._startTime, self._endTime,
-                                             summaryMinVal, summaryTotalAvg / summaryTotalTime, summaryMaxVal)
+                    rec = YMeasure(stream.get_startTimeUTC(),
+                                   streamEndTime,
+                                   stream.get_minValue(),
+                                   stream.get_averageValue(),
+                                   stream.get_maxValue())
+                    self._preview.append(rec)
+        if (len(self._streams) > 0) and (summaryTotalTime > 0):
+            # update time boundaries with actual data
+            if self._startTime < startTime:
+                self._startTime = startTime
+            if self._endTime == 0 or self._endTime > endTime:
+                self._endTime = endTime
+            self._summary = YMeasure(self._startTime, self._endTime,
+                                     summaryMinVal, summaryTotalAvg / summaryTotalTime, summaryMaxVal)
         self._progress = 0
         return self.get_progress()
 
-    #--- (generated code: YDataSet implementation)
+    # --- (generated code: YDataSet implementation)
     def _get_calibration(self):
         return self._calib
 
@@ -3107,7 +3372,7 @@ class YDataSet(object):
         # minCol
         # avgCol
         # maxCol
-        # // may throw an exception
+
         if progress != self._progress:
             return self._progress
         if self._progress < 0:
@@ -3141,6 +3406,7 @@ class YDataSet(object):
             if (tim >= self._startTime) and ((self._endTime == 0) or (tim <= self._endTime)):
                 self._measures.append(YMeasure(tim - itv, tim, y[minCol], y[avgCol], y[maxCol]))
             tim = tim + itv
+            tim = round(tim * 1000) / 1000.0
 
         return self.get_progress()
 
@@ -3244,6 +3510,10 @@ class YDataSet(object):
         # stream
         if self._progress < 0:
             url = "logger.json?id=" + self._functionId
+            if self._startTime != 0:
+                url = "" + url + "&from=" + str(int(self._startTime))
+            if self._endTime != 0:
+                url = "" + url + "&to=" + str(int(self._endTime))
         else:
             if self._progress >= len(self._streams):
                 return 100
@@ -3314,7 +3584,7 @@ class YDataSet(object):
         # minCol
         # avgCol
         # maxCol
-        # // may throw an exception
+
         startUtc = round(measure.get_startTimeUTC())
         stream = None
         for y in self._streams:
@@ -3377,8 +3647,8 @@ class YDataSet(object):
 
 #--- (end of generated code: YDataSet implementation)
 
-    #--- (generated code: DataSet functions)
-#--- (end of generated code: DataSet functions)
+        # --- (generated code: YDataSet functions)
+#--- (end of generated code: YDataSet functions)
 
 
 ## ------------------------------------------------------------------------------------
@@ -3387,7 +3657,7 @@ class YDataSet(object):
 ##
 ## ------------------------------------------------------------------------------------
 
-#noinspection PyProtectedMember
+# noinspection PyProtectedMember
 class YDevice:
     def __init__(self, devdesc):
         self._devdescr = devdesc
@@ -3417,7 +3687,7 @@ class YDevice:
     def PlugDevice(devdescr):
         for idx in range(len(YAPI.YDevice_devCache)):
             if YAPI.YDevice_devCache[idx]._devdescr == devdescr:
-                YAPI.YDevice_devCache[idx]._cacheStamp = datetime.datetime(year=1970, month=1, day=1)
+                YAPI.YDevice_devCache[idx].clearCache()
                 YAPI.YDevice_devCache[idx]._subpathinit = False
 
     def _HTTPRequestPrepare(self, request):
@@ -3426,14 +3696,14 @@ class YDevice:
 
         if not self._subpathinit:
             neededsize = ctypes.c_int()
-            #noinspection PyUnresolvedReferences
+            # noinspection PyUnresolvedReferences
             res = YAPI._yapiGetDevicePath(self._devdescr, root, None, 0, ctypes.byref(neededsize), errbuf)
             if YAPI.YISERR(res):
                 return res, YByte2String(errbuf.value)
-                #noinspection PyUnresolvedReferences
+                # noinspection PyUnresolvedReferences
             b = ctypes.create_string_buffer(neededsize.value)
             tmp = ctypes.c_int()
-            #noinspection PyUnresolvedReferences
+            # noinspection PyUnresolvedReferences
             res = YAPI._yapiGetDevicePath(self._devdescr, root, b, neededsize.value, ctypes.byref(tmp), errbuf)
             if YAPI.YISERR(res):
                 return res, YByte2String(errbuf.value)
@@ -3453,10 +3723,10 @@ class YDevice:
         newrequest = request[0:p] + self._subpath.encode("ASCII") + request[p + 1:]
         return YAPI.SUCCESS, newrequest
 
-    #noinspection PyUnresolvedReferences,PyUnusedLocal
+    # noinspection PyUnresolvedReferences,PyUnusedLocal
     def HTTPRequestAsync(self, request, callback, context, errmsgRef=None):
         errbuf = ctypes.create_string_buffer(YAPI.YOCTO_ERRMSG_LEN)
-        #invalidate cache
+        # invalidate cache
         self._cacheStamp = YAPI.GetTickCount()
         (res, newrequest) = self._HTTPRequestPrepare(request)
         if YAPI.YISERR(res):
@@ -3471,7 +3741,7 @@ class YDevice:
             return res
         return YAPI.SUCCESS
 
-    #noinspection PyUnresolvedReferences,PyUnresolvedReferences
+    # noinspection PyUnresolvedReferences,PyUnresolvedReferences
     def HTTPRequest(self, request, bufferRef, errmsgRef=None):
         (res, newrequest) = self._HTTPRequestPrepare(request)
         if YAPI.YISERR(res):
@@ -3492,7 +3762,7 @@ class YDevice:
             return res
         reply_size = neededsize_c.value
         bb = YString2Byte("")
-        #(xrange not supported in 2.5.x)
+        # (xrange not supported in 2.5.x)
         for i in range(reply_size):
             bb = YAddByte(bb, reply_c[i])
         bufferRef.value = bb
@@ -3505,40 +3775,44 @@ class YDevice:
 
     def requestAPI(self, apiresRef, errmsgRef=None):
 
-        suberrmsg = YRefParam()
+        http_data = YRefParam()
 
-        #Check if we have a valid cache value
+        # Check if we have a valid cache value
         if self._cacheStamp > YAPI.GetTickCount():
             apiresRef.value = self._cacheJson
             return YAPI.SUCCESS
+        request = "GET /api.json"
+        if self._cacheJson is not None:
+            request += "?fw=" + self._cacheJson.getYJSONObject("module").getString("firmwareRelease")
+            # print("JZON:"+ request)
 
-        res = self.HTTPRequest("GET /api.json \r\n\r\n", suberrmsg, errmsgRef)
+        res = self.HTTPRequest(request + " \r\n\r\n", http_data, errmsgRef)
         if YAPI.YISERR(res):
             # make sure a device scan does not solve the issue
             res = YAPI.yapiUpdateDeviceList(1, errmsgRef)
             if YAPI.YISERR(res):
                 return res
 
-            res = self.HTTPRequest("GET /api.json \r\n\r\n", suberrmsg, errmsgRef)
+            res = self.HTTPRequest(request + " \r\n\r\n", http_data, errmsgRef)
             if YAPI.YISERR(res):
                 return res
 
+        buffer = YByte2String(http_data.value)
+        (httpcode, http_headerlen, errmsg) = YAPI.parseHTTP(buffer, 0, len(buffer))
+        if httpcode != 200:
+            errmsgRef.value = "Unexpected HTTP return code:%s" % httpcode
+            return YAPI.IO_ERROR
         try:
-            j = YAPI.TJsonParser(YByte2String(suberrmsg.value))
-        except YAPI.JsonError:
-            #( exception handling working in both  in 2.x and 3.x)
-            e = sys.exc_info()[1]
+            apires = YJSONObject(buffer, http_headerlen, len(buffer))
+            apires.parseWithRef(self._cacheJson)
+        except YAPI_Exception as ex:
+            self._cacheJson = None
             if not errmsgRef is None:
-                errmsgRef.value = "unexpected JSON structure: " + e.msg
+                errmsgRef.value = "JSON error: " + ex.errorMessage
             return YAPI.IO_ERROR
-
-        if j.httpcode != 200:
-            errmsg = "Unexpected HTTP return code:%s" % j.httpcode
-            return YAPI.IO_ERROR
-
         # store result in cache
-        self._cacheJson = j
-        apiresRef.value = j
+        self._cacheJson = apires
+        apiresRef.value = apires
         self._cacheStamp = YAPI.GetTickCount() + YAPI.DefaultCacheValidity
 
         return YAPI.SUCCESS
@@ -3547,7 +3821,7 @@ class YDevice:
         self._cacheJson = None
         self._cacheStamp = datetime.datetime(year=1970, month=1, day=1)
 
-    #noinspection PyTypeChecker,PyTypeChecker,PyTypeChecker
+    # noinspection PyTypeChecker,PyTypeChecker,PyTypeChecker
     def getFunctions(self, functionsRef, errmsgRef=None):
 
         neededsize = YRefParam()
@@ -3557,7 +3831,7 @@ class YDevice:
                 return res
 
             count = int(neededsize.value / YAPI.C_INTSIZE)
-            #noinspection PyCallingNonCallable
+            # noinspection PyCallingNonCallable
             p = (ctypes.c_int * count)()
 
             res = YAPI.apiGetFunctionsByDevice(self._devdescr, 0, p, 64, neededsize, errmsgRef)
@@ -3570,27 +3844,28 @@ class YDevice:
         functionsRef.value = self._functions
         return YAPI.SUCCESS
 
+
 ## - keeps a reference to our callbacks, to  protect them from GC
 ## (may
-#noinspection PyProtectedMember
+# noinspection PyProtectedMember
 native_yLogFunctionAnchor = YAPI._yapiLogFunc(YAPI.native_yLogFunction)
-#noinspection PyProtectedMember
+# noinspection PyProtectedMember
 native_yFunctionUpdateAnchor = YAPI._yapiFunctionUpdateFunc(YAPI.native_yFunctionUpdateCallback)
-#noinspection PyProtectedMember
+# noinspection PyProtectedMember
 native_yTimedReportAnchor = YAPI._yapiTimedReportFunc(YAPI.native_yTimedReportCallback)
-#noinspection PyProtectedMember
+# noinspection PyProtectedMember
 native_yDeviceArrivalAnchor = YAPI._yapiDeviceUpdateFunc(YAPI.native_yDeviceArrivalCallback)
-#noinspection PyProtectedMember
+# noinspection PyProtectedMember
 native_yDeviceRemovalAnchor = YAPI._yapiDeviceUpdateFunc(YAPI.native_yDeviceRemovalCallback)
-#noinspection PyProtectedMember
+# noinspection PyProtectedMember
 native_yDeviceChangeAnchor = YAPI._yapiDeviceUpdateFunc(YAPI.native_yDeviceChangeCallback)
-#noinspection PyProtectedMember
+# noinspection PyProtectedMember
 native_yHubDiscoveryAnchor = YAPI._yapiHubDiscoveryCallback(YAPI.native_HubDiscoveryCallback)
-#noinspection PyProtectedMember
+# noinspection PyProtectedMember
 native_yDeviceLogAnchor = YAPI._yapiDeviceLogCallback(YAPI.native_DeviceLogCallback)
 
 
-#--- (generated code: YFunction class start)
+# --- (generated code: YFunction class start)
 #noinspection PyProtectedMember
 class YFunction(object):
     """
@@ -3618,7 +3893,7 @@ class YFunction(object):
     HARDWAREID_INVALID = YAPI.INVALID_STRING
     FUNCTIONID_INVALID = YAPI.INVALID_STRING
     FRIENDLYNAME_INVALID = YAPI.INVALID_STRING
-    #--- (generated code: YFunction definitions)
+    # --- (generated code: YFunction definitions)
     LOGICALNAME_INVALID = YAPI.INVALID_STRING
     ADVERTISEDVALUE_INVALID = YAPI.INVALID_STRING
     #--- (end of generated code: YFunction definitions)
@@ -3632,12 +3907,12 @@ class YFunction(object):
         self._userData = None
         self._genCallback = None
         self._dataStreams = dict()
-        #--- (generated code: YFunction attributes)
+        # --- (generated code: YFunction attributes)
         self._callback = None
         self._logicalName = YFunction.LOGICALNAME_INVALID
         self._advertisedValue = YFunction.ADVERTISEDVALUE_INVALID
         self._valueCallbackFunction = None
-        self._cacheExpiration = datetime.datetime.fromtimestamp(0)
+        self._cacheExpiration = datetime.datetime.fromtimestamp(86400)
         self._serial = ''
         self._funId = ''
         self._hwId = ''
@@ -3686,7 +3961,7 @@ class YFunction(object):
         if not YAPI.ExceptionsDisabled:
             raise YAPI.YAPI_Exception(errType, "YoctoApi error : " + errorMessage)
 
-    #  Method used to resolve our name to our unique function descriptor (may trigger a hub scan)
+    # Method used to resolve our name to our unique function descriptor (may trigger a hub scan)
     def _getDescriptor(self, fundescrRef, errmsgRef=None):
         tmp_fundescr = YAPI.yapiGetFunction(self._className, self._func, errmsgRef)
         if YAPI.YISERR(tmp_fundescr):
@@ -3705,6 +3980,7 @@ class YFunction(object):
 
     def _getDevice(self, devRef, errmsgRef=None):
         fundescrRef = YRefParam()
+        # Resolve function name
         # Resolve function name
         res = self._getDescriptor(fundescrRef, errmsgRef)
         if YAPI.YISERR(res):
@@ -3737,7 +4013,7 @@ class YFunction(object):
             return res
 
         maxsize = n_element * YAPI.C_INTSIZE
-        #noinspection PyCallingNonCallable,PyTypeChecker
+        # noinspection PyCallingNonCallable,PyTypeChecker
         p = (ctypes.c_int * n_element)()
 
         res = YAPI.apiGetFunctionsByClass(self._className, fundescrRef.value, p, maxsize, neededsizeRef, errmsgRef)
@@ -3746,7 +4022,7 @@ class YFunction(object):
             self._throw(res, errmsgRef.value)
             return res
 
-        #noinspection PyTypeChecker
+        # noinspection PyTypeChecker
         count = neededsizeRef.value / YAPI.C_INTSIZE
         if not count:
             hwidRef.value = ""
@@ -3772,7 +4048,7 @@ class YFunction(object):
                             c == '<' or c == '=' or c == '>' or c == '\\' or c == '^' or c == '`':
                 c_ord = ord(c)
                 if ((c_ord == 0xc2 or c_ord == 0xc3) and (ofs + 1 < nb_bytes) and (
-                    ord(changeval[ofs + 1]) & 0xc0) == 0x80):
+                            ord(changeval[ofs + 1]) & 0xc0) == 0x80):
                     # UTF8-encoded ISO-8859-1 character: translate to plain ISO-8859-1
                     c_ord = (c_ord & 1) * 0x40
                     ofs += 1
@@ -3792,8 +4068,9 @@ class YFunction(object):
         if YAPI.YISERR(res):
             return res
         devdesc = ctypes.c_int()
-        #noinspection PyUnresolvedReferences
-        res = YAPI._yapiGetFunctionInfoEx(fundescRef.value, ctypes.byref(devdesc), None, funcid, None, None, None, errbuff)
+        # noinspection PyUnresolvedReferences
+        res = YAPI._yapiGetFunctionInfoEx(fundescRef.value, ctypes.byref(devdesc), None, funcid, None, None, None,
+                                          errbuff)
         if YAPI.YISERR(res):
             if not errmsgRef is None:
                 errmsgRef.value = YByte2String(errbuff.value)
@@ -3806,10 +4083,7 @@ class YFunction(object):
         return YAPI.SUCCESS
 
     def _parse(self, j):
-        if j.recordtype != YAPI.TJSONRECORDTYPE.JSON_STRUCT:
-            return -1
-        for member in j.members:
-            self._parseAttr(member)
+        self._parseAttr(j)
         self._parserHelper()
         return 0
 
@@ -3844,7 +4118,7 @@ class YFunction(object):
                 self._throw(res, errmsgRef.value)
                 return res
 
-        if self._cacheExpiration != datetime.datetime.fromtimestamp(0):
+        if self._cacheExpiration != datetime.datetime.fromtimestamp(86400):
             self._cacheExpiration = YAPI.GetTickCount()
 
         return YAPI.SUCCESS
@@ -3919,41 +4193,37 @@ class YFunction(object):
             return ''
         return result_buffer[found + 4:]
 
+    # noinspection PyMethodMayBeStatic
     def _json_get_key(self, json, key):
-        try:
-            json_str = YByte2String(json)
-            j = YAPI.TJsonParser(json_str, False)
-        except YAPI.JsonError:
-            #( exception handling working in both  in 2.x and 3.x
-            e = sys.exc_info()[1]
-            self._throw(YAPI.IO_ERROR, "unexpected JSON structure: " + e.msg)
-            return YAPI.IO_ERROR
-        node = j.GetChildNode(None, key)
-        return node.svalue
+        json_str = YByte2String(json)
+        obj = YJSONObject(json_str, 0, len(json_str))
+        obj.parse()
+        if obj.has(key):
+            val = obj.getString(key)
+            if val == None:
+                return obj.toString()
+            return val
+        raise YAPI.YAPI_Exception(YAPI.IO_ERROR, "No key %s in JSON struct" % key)
 
+    # noinspection PyMethodMayBeStatic
     def _json_get_array(self, json):
-        try:
-            json_str = YByte2String(json)
-            j = YAPI.TJsonParser(json_str, False)
-        except YAPI.JsonError:
-            #( exception handling working in both  in 2.x and 3.x
-            e = sys.exc_info()[1]
-            self._throw(YAPI.IO_ERROR, "unexpected JSON structure: " + e.msg)
-            return []
-        return j.GetAllChilds(None)
+        json_str = YByte2String(json)
+        arr = YJSONArray(json_str, 0, len(json_str))
+        arr.parse()
+        lis = []
+        for i in range(0, arr.length()):
+            o = arr.get(i)
+            lis.append(o.toJSON())
+        return lis
 
+    # noinspection PyMethodMayBeStatic
     def _json_get_string(self, json):
-        try:
-            json_str = YByte2String(json)
-            j = YAPI.TJsonParser('[' + json_str + ']', False)
-        except YAPI.JsonError:
-            #( exception handling working in both  in 2.x and 3.x
-            e = sys.exc_info()[1]
-            self._throw(YAPI.IO_ERROR, "unexpected JSON structure: " + e.msg)
-            return ''
-        node = j.GetRootNode()
-        return node.items[0].svalue
+        json_str = YByte2String(json)
+        jstring = YJSONString(json_str, 0, len(json_str))
+        jstring.parse()
+        return jstring.getString()
 
+    # noinspection PyMethodMayBeStatic
     def _get_json_path(self, json, path):
         errbuf = ctypes.create_string_buffer(YAPI.YOCTO_ERRMSG_LEN)
         path_data = ctypes.create_string_buffer(path)
@@ -3962,7 +4232,7 @@ class YFunction(object):
         res = YAPI._yapiJsonGetPath(path_data, json_data, len(json), ctypes.byref(reply_c), errbuf)
         if res > 0:
             bb = YString2Byte("")
-            #(xrange not supported in 2.5.x)
+            # (xrange not supported in 2.5.x)
             for i in range(res):
                 bb = YAddByte(bb, reply_c[i])
             YAPI._yapiFreeMem(reply_c)
@@ -3970,6 +4240,8 @@ class YFunction(object):
         return ""
 
     def _decode_json_string(self, json):
+        if isinstance(json, str):
+            json = YString2Byte(json)
         json_data = ctypes.create_string_buffer(json)
         buffer = ctypes.create_string_buffer(len(json))
         res = YAPI._yapiJsonDecodeString(json_data, buffer)
@@ -3988,14 +4260,12 @@ class YFunction(object):
     def _clearDataStreamCache(self):
         self._dataStreams.clear()
 
-    #--- (generated code: YFunction implementation)
-    def _parseAttr(self, member):
-        if member.name == "logicalName":
-            self._logicalName = member.svalue
-            return 1
-        if member.name == "advertisedValue":
-            self._advertisedValue = member.svalue
-            return 1
+    # --- (generated code: YFunction implementation)
+    def _parseAttr(self, json_val):
+        if json_val.has("logicalName"):
+            self._logicalName = json_val.getString("logicalName")
+        if json_val.has("advertisedValue"):
+            self._advertisedValue = json_val.getString("advertisedValue")
         return 0
 
     def get_logicalName(self):
@@ -4006,10 +4276,12 @@ class YFunction(object):
 
         On failure, throws an exception or returns YFunction.LOGICALNAME_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YFunction.LOGICALNAME_INVALID
-        return self._logicalName
+        res = self._logicalName
+        return res
 
     def set_logicalName(self, newval):
         """
@@ -4038,10 +4310,12 @@ class YFunction(object):
 
         On failure, throws an exception or returns YFunction.ADVERTISEDVALUE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YFunction.ADVERTISEDVALUE_INVALID
-        return self._advertisedValue
+        res = self._advertisedValue
+        return res
 
     def set_advertisedValue(self, newval):
         rest_val = newval
@@ -4067,6 +4341,10 @@ class YFunction(object):
         a function by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string that uniquely characterizes the function
 
@@ -4111,7 +4389,7 @@ class YFunction(object):
 
     def muteValueCallbacks(self):
         """
-        Disable the propagation of every new advertised value to the parent hub.
+        Disables the propagation of every new advertised value to the parent hub.
         You can use this function to save bandwidth and CPU on computers with limited
         resources, or to prevent unwanted invocations of the HTTP callback.
         Remember to call the saveToFlash() method of the module if the
@@ -4125,7 +4403,7 @@ class YFunction(object):
 
     def unmuteValueCallbacks(self):
         """
-        Re-enable the propagation of every new advertised value to the parent hub.
+        Re-enables the propagation of every new advertised value to the parent hub.
         This function reverts the effect of a previous call to muteValueCallbacks().
         Remember to call the saveToFlash() method of the module if the
         modification must be kept.
@@ -4136,8 +4414,24 @@ class YFunction(object):
         """
         return self.set_advertisedValue("")
 
+    def loadAttribute(self, attrName):
+        """
+        Returns the current value of a single function attribute, as a text string, as quickly as
+        possible but without using the cached value.
+
+        @param attrName : the name of the requested attribute
+
+        @return a string with the value of the the attribute
+
+        On failure, throws an exception or returns an empty string.
+        """
+        # url
+        # attrVal
+        url = "api/" + self.get_functionId() + "/" + attrName
+        attrVal = self._download(url)
+        return YByte2String(attrVal)
+
     def _parserHelper(self):
-        # // By default, nothing to do
         return 0
 
     def nextFunction(self):
@@ -4174,8 +4468,9 @@ class YFunction(object):
             self._throw(res, errmsgRef.value)
             return self.HARDWAREID_INVALID
         devdesc = ctypes.c_int()
-        #noinspection PyUnresolvedReferences
-        res = YAPI._yapiGetFunctionInfoEx(fundescRef.value, ctypes.byref(devdesc), snum, funcid, None, None, None, errbuff)
+        # noinspection PyUnresolvedReferences
+        res = YAPI._yapiGetFunctionInfoEx(fundescRef.value, ctypes.byref(devdesc), snum, funcid, None, None, None,
+                                          errbuff)
         if YAPI.YISERR(res):
             self._throw(res, errmsgRef.value)
             return self.HARDWAREID_INVALID
@@ -4200,14 +4495,15 @@ class YFunction(object):
             self._throw(res, errmsgRef.value)
             return self.FUNCTIONID_INVALID
         devdesc = ctypes.c_int()
-        #noinspection PyUnresolvedReferences
-        res = YAPI._yapiGetFunctionInfoEx(fundescRef.value, ctypes.byref(devdesc), None, funcid, None, None, None, errbuff)
+        # noinspection PyUnresolvedReferences
+        res = YAPI._yapiGetFunctionInfoEx(fundescRef.value, ctypes.byref(devdesc), None, funcid, None, None, None,
+                                          errbuff)
         if YAPI.YISERR(res):
             self._throw(res, errmsgRef.value)
             return self.FUNCTIONID_INVALID
         return YByte2String(funcid.value)
 
-    #noinspection PyUnresolvedReferences,PyUnresolvedReferences
+    # noinspection PyUnresolvedReferences,PyUnresolvedReferences
     def get_friendlyName(self):
         """
         Returns a global identifier of the function in the format MODULE_NAME&#46;FUNCTION_NAME.
@@ -4230,13 +4526,15 @@ class YFunction(object):
         # Resolve the function name
         res = self._getDescriptor(fundescRef, errmsgRef)
         if not YAPI.YISERR(res) and not YAPI.YISERR(
-                YAPI._yapiGetFunctionInfoEx(fundescRef.value, ctypes.byref(devdesc), snum, funcid, None, fname, None, errbuff)):
+                YAPI._yapiGetFunctionInfoEx(fundescRef.value, ctypes.byref(devdesc), snum, funcid, None, fname, None,
+                                            errbuff)):
             if YByte2String(fname.value) != "":
                 funcid = fname
             dname = ctypes.create_string_buffer(YAPI.YOCTO_FUNCTION_LEN)
             moddescr = YAPI.yapiGetFunction("Module", YByte2String(snum.value), errmsgRef)
             if not YAPI.YISERR(moddescr) and not YAPI.YISERR(
-                    YAPI._yapiGetFunctionInfoEx(moddescr, ctypes.byref(devdesc), None, None, None, dname, None, errbuff)):
+                    YAPI._yapiGetFunctionInfoEx(moddescr, ctypes.byref(devdesc), None, None, None, dname, None,
+                                                errbuff)):
                 if YByte2String(dname.value) != "":
                     return "%s.%s" % (YByte2String(dname.value), YByte2String(funcid.value))
             return "%s.%s" % (YByte2String(snum.value), YByte2String(funcid.value))
@@ -4268,9 +4566,10 @@ class YFunction(object):
         devdesc = ctypes.c_int()
         # Resolve the function name
         res = self._getDescriptor(fundescRef, errmsgRef)
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         if not YAPI.YISERR(res) and not YAPI.YISERR(
-                YAPI._yapiGetFunctionInfoEx(fundescRef.value, ctypes.byref(devdesc), snum, funcid, None, None, None, errbuff)):
+                YAPI._yapiGetFunctionInfoEx(fundescRef.value, ctypes.byref(devdesc), snum, funcid, None, None, None,
+                                            errbuff)):
             return self._className + "(" + self._func + ")=" + YByte2String(snum.value) + "." + YByte2String(
                 funcid.value)
         return self._className + "(" + self._func + ")=unresolved"
@@ -4331,7 +4630,7 @@ class YFunction(object):
         if self._cacheExpiration > YAPI.GetTickCount():
             return True
 
-        #Check that the function is available, without throwing exceptions
+        # Check that the function is available, without throwing exceptions
         if YAPI.YISERR(self._getDevice(devRef, errmsgRef)):
             return False
 
@@ -4394,9 +4693,9 @@ class YFunction(object):
         self._funId = str(funcIdRef.value)
         self._hwId = self._serial + '.' + self._funId
 
-        node = apiresRef.value.GetChildNode(None, funcIdRef.value)
+        node = apiresRef.value.getYJSONObject(self._funId)
         if node is None:
-            self._throw(YAPI.IO_ERROR, "unexpected JSON structure: missing function " + str(funcIdRef.value))
+            self._throw(YAPI.IO_ERROR, "unexpected JSON structure: missing function " + self._funId)
             return YAPI.IO_ERROR
 
         self._parse(node)
@@ -4495,7 +4794,7 @@ class YFunction(object):
     def setUserData(self, data):
         self.set_userData(data)
 
-    #--- (generated code: Function functions)
+    # --- (generated code: YFunction functions)
 
     @staticmethod
     def FirstFunction():
@@ -4523,10 +4822,10 @@ class YFunction(object):
 
         return YFunction.FindFunction(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of generated code: Function functions)
+#--- (end of generated code: YFunction functions)
 
 
-#--- (generated code: YModule class start)
+# --- (generated code: YModule class start)
 #noinspection PyProtectedMember
 class YModule(YFunction):
     """
@@ -4536,7 +4835,7 @@ class YModule(YFunction):
 
     """
 #--- (end of generated code: YModule class start)
-    #--- (generated code: YModule definitions)
+    # --- (generated code: YModule definitions)
     PRODUCTNAME_INVALID = YAPI.INVALID_STRING
     SERIALNUMBER_INVALID = YAPI.INVALID_STRING
     PRODUCTID_INVALID = YAPI.INVALID_UINT
@@ -4559,7 +4858,7 @@ class YModule(YFunction):
     def __init__(self, func):
         super(YModule, self).__init__(func)
         self._className = "Module"
-        #--- (generated code: YModule attributes)
+        # --- (generated code: YModule attributes)
         self._callback = None
         self._productName = YModule.PRODUCTNAME_INVALID
         self._serialNumber = YModule.SERIALNUMBER_INVALID
@@ -4576,45 +4875,33 @@ class YModule(YFunction):
         self._logCallback = None
         #--- (end of generated code: YModule attributes)
 
-    #--- (generated code: YModule implementation)
-    def _parseAttr(self, member):
-        if member.name == "productName":
-            self._productName = member.svalue
-            return 1
-        if member.name == "serialNumber":
-            self._serialNumber = member.svalue
-            return 1
-        if member.name == "productId":
-            self._productId = member.ivalue
-            return 1
-        if member.name == "productRelease":
-            self._productRelease = member.ivalue
-            return 1
-        if member.name == "firmwareRelease":
-            self._firmwareRelease = member.svalue
-            return 1
-        if member.name == "persistentSettings":
-            self._persistentSettings = member.ivalue
-            return 1
-        if member.name == "luminosity":
-            self._luminosity = member.ivalue
-            return 1
-        if member.name == "beacon":
-            self._beacon = member.ivalue
-            return 1
-        if member.name == "upTime":
-            self._upTime = member.ivalue
-            return 1
-        if member.name == "usbCurrent":
-            self._usbCurrent = member.ivalue
-            return 1
-        if member.name == "rebootCountdown":
-            self._rebootCountdown = member.ivalue
-            return 1
-        if member.name == "userVar":
-            self._userVar = member.ivalue
-            return 1
-        super(YModule, self)._parseAttr(member)
+    # --- (generated code: YModule implementation)
+    def _parseAttr(self, json_val):
+        if json_val.has("productName"):
+            self._productName = json_val.getString("productName")
+        if json_val.has("serialNumber"):
+            self._serialNumber = json_val.getString("serialNumber")
+        if json_val.has("productId"):
+            self._productId = json_val.getInt("productId")
+        if json_val.has("productRelease"):
+            self._productRelease = json_val.getInt("productRelease")
+        if json_val.has("firmwareRelease"):
+            self._firmwareRelease = json_val.getString("firmwareRelease")
+        if json_val.has("persistentSettings"):
+            self._persistentSettings = json_val.getInt("persistentSettings")
+        if json_val.has("luminosity"):
+            self._luminosity = json_val.getInt("luminosity")
+        if json_val.has("beacon"):
+            self._beacon = (json_val.getInt("beacon") > 0 if 1 else 0)
+        if json_val.has("upTime"):
+            self._upTime = json_val.getLong("upTime")
+        if json_val.has("usbCurrent"):
+            self._usbCurrent = json_val.getInt("usbCurrent")
+        if json_val.has("rebootCountdown"):
+            self._rebootCountdown = json_val.getInt("rebootCountdown")
+        if json_val.has("userVar"):
+            self._userVar = json_val.getInt("userVar")
+        super(YModule, self)._parseAttr(json_val)
 
     def get_productName(self):
         """
@@ -4624,10 +4911,12 @@ class YModule(YFunction):
 
         On failure, throws an exception or returns YModule.PRODUCTNAME_INVALID.
         """
-        if self._cacheExpiration == datetime.datetime.fromtimestamp(0):
+        # res
+        if self._cacheExpiration == datetime.datetime.fromtimestamp(86400):
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YModule.PRODUCTNAME_INVALID
-        return self._productName
+        res = self._productName
+        return res
 
     def get_serialNumber(self):
         """
@@ -4637,10 +4926,12 @@ class YModule(YFunction):
 
         On failure, throws an exception or returns YModule.SERIALNUMBER_INVALID.
         """
-        if self._cacheExpiration == datetime.datetime.fromtimestamp(0):
+        # res
+        if self._cacheExpiration == datetime.datetime.fromtimestamp(86400):
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YModule.SERIALNUMBER_INVALID
-        return self._serialNumber
+        res = self._serialNumber
+        return res
 
     def get_productId(self):
         """
@@ -4650,10 +4941,12 @@ class YModule(YFunction):
 
         On failure, throws an exception or returns YModule.PRODUCTID_INVALID.
         """
-        if self._cacheExpiration == datetime.datetime.fromtimestamp(0):
+        # res
+        if self._cacheExpiration == datetime.datetime.fromtimestamp(86400):
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YModule.PRODUCTID_INVALID
-        return self._productId
+        res = self._productId
+        return res
 
     def get_productRelease(self):
         """
@@ -4663,10 +4956,12 @@ class YModule(YFunction):
 
         On failure, throws an exception or returns YModule.PRODUCTRELEASE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YModule.PRODUCTRELEASE_INVALID
-        return self._productRelease
+        res = self._productRelease
+        return res
 
     def get_firmwareRelease(self):
         """
@@ -4676,10 +4971,12 @@ class YModule(YFunction):
 
         On failure, throws an exception or returns YModule.FIRMWARERELEASE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YModule.FIRMWARERELEASE_INVALID
-        return self._firmwareRelease
+        res = self._firmwareRelease
+        return res
 
     def get_persistentSettings(self):
         """
@@ -4690,10 +4987,12 @@ class YModule(YFunction):
 
         On failure, throws an exception or returns YModule.PERSISTENTSETTINGS_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YModule.PERSISTENTSETTINGS_INVALID
-        return self._persistentSettings
+        res = self._persistentSettings
+        return res
 
     def set_persistentSettings(self, newval):
         rest_val = str(newval)
@@ -4707,10 +5006,12 @@ class YModule(YFunction):
 
         On failure, throws an exception or returns YModule.LUMINOSITY_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YModule.LUMINOSITY_INVALID
-        return self._luminosity
+        res = self._luminosity
+        return res
 
     def set_luminosity(self, newval):
         """
@@ -4736,10 +5037,12 @@ class YModule(YFunction):
 
         On failure, throws an exception or returns YModule.BEACON_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YModule.BEACON_INVALID
-        return self._beacon
+        res = self._beacon
+        return res
 
     def set_beacon(self, newval):
         """
@@ -4762,10 +5065,12 @@ class YModule(YFunction):
 
         On failure, throws an exception or returns YModule.UPTIME_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YModule.UPTIME_INVALID
-        return self._upTime
+        res = self._upTime
+        return res
 
     def get_usbCurrent(self):
         """
@@ -4775,10 +5080,12 @@ class YModule(YFunction):
 
         On failure, throws an exception or returns YModule.USBCURRENT_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YModule.USBCURRENT_INVALID
-        return self._usbCurrent
+        res = self._usbCurrent
+        return res
 
     def get_rebootCountdown(self):
         """
@@ -4790,10 +5097,12 @@ class YModule(YFunction):
 
         On failure, throws an exception or returns YModule.REBOOTCOUNTDOWN_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YModule.REBOOTCOUNTDOWN_INVALID
-        return self._rebootCountdown
+        res = self._rebootCountdown
+        return res
 
     def set_rebootCountdown(self, newval):
         rest_val = str(newval)
@@ -4808,14 +5117,17 @@ class YModule(YFunction):
 
         On failure, throws an exception or returns YModule.USERVAR_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YModule.USERVAR_INVALID
-        return self._userVar
+        res = self._userVar
+        return res
 
     def set_userVar(self, newval):
         """
-        Returns the value previously stored in this attribute.
+        Stores a 32 bit value in the device RAM. This attribute is at programmer disposal,
+        should he need to store a state variable.
         On startup and after a device reboot, the value is always reset to zero.
 
         @param newval : an integer
@@ -4839,6 +5151,10 @@ class YModule(YFunction):
         a module by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string containing either the serial number or
                 the logical name of the desired module
@@ -4942,7 +5258,7 @@ class YModule(YFunction):
         """
         # serial
         # settings
-        # // may throw an exception
+
         serial = self.get_serialNumber()
         settings = self.get_allSettings()
         if len(settings) == 0:
@@ -4959,7 +5275,6 @@ class YModule(YFunction):
 
         @return a YFirmwareUpdate object or None on error.
         """
-        # // may throw an exception
         return self.updateFirmwareEx(path, False)
 
     def get_allSettings(self):
@@ -4986,7 +5301,7 @@ class YModule(YFunction):
         # ext_settings
         filelist = []
         templist = []
-        # // may throw an exception
+
         settings = self._download("api.json")
         if len(settings) == 0:
             return settings
@@ -5007,7 +5322,6 @@ class YModule(YFunction):
                     sep = ","
         ext_settings = ext_settings + "],\n\"files\":["
         if self.hasFunction("files"):
-            #
             json = self._download("files.json?a=dir&f=")
             if len(json) == 0:
                 return json
@@ -5032,7 +5346,7 @@ class YModule(YFunction):
         # ofs
         # size
         url = "api/" + funcId + ".json?command=Z"
-        # // may throw an exception
+
         self._download(url)
         # // add records in growing resistance value
         values = self._json_get_array(YString2Byte(jsonExtra))
@@ -5056,7 +5370,6 @@ class YModule(YFunction):
             functionId = self._decode_json_string(functionId)
             data = self._get_json_path(y, "json")
             if self.hasFunction(functionId):
-                #
                 self.loadThermistorExtra(functionId, data)
         return YAPI.SUCCESS
 
@@ -5092,7 +5405,6 @@ class YModule(YFunction):
             # res
             # name
             # data
-            #
             down = self._download("files.json?a=format")
             res = self._get_json_path(YByte2String(down), "res")
             res = self._decode_json_string(res)
@@ -5120,7 +5432,7 @@ class YModule(YFunction):
         # count
         # i
         # fid
-        # // may throw an exception
+
         count  = self.functionCount()
         i = 0
         while i < count:
@@ -5142,7 +5454,7 @@ class YModule(YFunction):
         # i
         # ftype
         res = []
-        # // may throw an exception
+
         count = self.functionCount()
         i = 0
 
@@ -5248,11 +5560,11 @@ class YModule(YFunction):
         paramScale = funScale
         paramOffset = funOffset
         if funVer < 3:
-            #
+            # // Read the effective device scale if available
             if funVer == 2:
                 words = YAPI._decodeWords(currentFuncValue)
                 if (words[0] == 1366) and (words[1] == 12500):
-                    #
+                    # // Yocto-3D RefFrame used a special encoding
                     funScale = 1
                     funOffset = 0
                 else:
@@ -5265,11 +5577,11 @@ class YModule(YFunction):
         del calibData[:]
         calibType = 0
         if paramVer < 3:
-            #
+            # // Handle old 16 bit parameters formats
             if paramVer == 2:
                 words = YAPI._decodeWords(param)
                 if (words[0] == 1366) and (words[1] == 12500):
-                    #
+                    # // Yocto-3D RefFrame used a special encoding
                     paramScale = 1
                     paramOffset = 0
                 else:
@@ -5309,14 +5621,14 @@ class YModule(YFunction):
             i = 0
             while i < len(calibData):
                 if paramScale > 0:
-                    #
+                    # // scalar decoding
                     calibData[i] = (calibData[i] - paramOffset) / paramScale
                 else:
-                    #
+                    # // floating-point decoding
                     calibData[i] = YAPI._decimalToDouble(round(calibData[i]))
                 i = i + 1
         else:
-            #
+            # // Handle latest 32bit parameter format
             iCalib = YAPI._decodeFloats(param)
             calibType = round(iCalib[0] / 1000.0)
             if calibType >= 30:
@@ -5326,7 +5638,7 @@ class YModule(YFunction):
                 calibData.append(iCalib[i] / 1000.0)
                 i = i + 1
         if funVer >= 3:
-            #
+            # // Encode parameters in new format
             if len(calibData) == 0:
                 param = "0,"
             else:
@@ -5342,7 +5654,7 @@ class YModule(YFunction):
                 param = param + ","
         else:
             if funVer >= 1:
-                #
+                # // Encode parameters for older devices
                 nPoints = int((len(calibData)) / (2))
                 param = str(nPoints)
                 i = 0
@@ -5354,7 +5666,7 @@ class YModule(YFunction):
                     param = param + "," + str(round(wordVal))
                     i = i + 1
             else:
-                #
+                # // Initial V0 encoding used for old Yocto-Light
                 if len(calibData) == 4:
                     param = str(round(1000 * (calibData[3] - calibData[1]) / calibData[2] - calibData[0]))
         return param
@@ -5416,7 +5728,7 @@ class YModule(YFunction):
 
         for y in old_dslist:
             each_str = self._json_get_string(YString2Byte(y))
-            #
+            # // split json path and attr
             leng = len(each_str)
             eqpos = each_str.find("=")
             if (eqpos < 0) or (leng == 0):
@@ -5431,7 +5743,7 @@ class YModule(YFunction):
 
 
 
-        # // may throw an exception
+
         actualSettings = self._download("api.json")
         actualSettings = self._flattenJsonStruct(actualSettings)
         new_dslist = self._json_get_array(actualSettings)
@@ -5439,9 +5751,9 @@ class YModule(YFunction):
 
 
         for y in new_dslist:
-            #
+            # // remove quotes
             each_str = self._json_get_string(YString2Byte(y))
-            #
+            # // split json path and attr
             leng = len(each_str)
             eqpos = each_str.find("=")
             if (eqpos < 0) or (leng == 0):
@@ -5596,6 +5908,7 @@ class YModule(YFunction):
 
         for y in restoreLast:
             self._download(y)
+        self.clearCache()
         return YAPI.SUCCESS
 
     def download(self, pathname):
@@ -5618,7 +5931,6 @@ class YModule(YFunction):
         @return a binary buffer with module icon, in png format.
                 On failure, throws an exception or returns  YAPI.INVALID_STRING.
         """
-        # // may throw an exception
         return self._download("icon2d.png")
 
     def get_lastLogs(self):
@@ -5630,7 +5942,7 @@ class YModule(YFunction):
                 On failure, throws an exception or returns  YAPI.INVALID_STRING.
         """
         # content
-        # // may throw an exception
+
         content = self._download("logs.txt")
         return YByte2String(content)
 
@@ -5665,7 +5977,7 @@ class YModule(YFunction):
         # subdevice_list
         subdevices = []
         # serial
-        # // may throw an exception
+
         serial = self.get_serialNumber()
         fullsize.value = 0
         yapi_res = YAPI._yapiGetSubdevices(ctypes.create_string_buffer(YString2Byte(serial)), smallbuff, 1024, ctypes.byref(fullsize), errmsg)
@@ -5700,7 +6012,7 @@ class YModule(YFunction):
         pathsize = ctypes.c_int()
         # yapi_res
         # serial
-        # // may throw an exception
+
         serial = self.get_serialNumber()
         # // retrieve device object
         pathsize.value = 0
@@ -5721,7 +6033,7 @@ class YModule(YFunction):
         pathsize = ctypes.c_int()
         # yapi_res
         # serial
-        # // may throw an exception
+
         serial = self.get_serialNumber()
         # // retrieve device object
         pathsize.value = 0
@@ -5757,14 +6069,16 @@ class YModule(YFunction):
         devdesc = ctypes.c_int()
         # Resolve the function name
         res = self._getDescriptor(fundescRef, errmsgRef)
-        #noinspection PyUnresolvedReferences
+        # noinspection PyUnresolvedReferences
         if not YAPI.YISERR(res) and not YAPI.YISERR(
-                YAPI._yapiGetFunctionInfoEx(fundescRef.value, ctypes.byref(devdesc), snum, funcid, None, fname, None, errbuff)):
+                YAPI._yapiGetFunctionInfoEx(fundescRef.value, ctypes.byref(devdesc), snum, funcid, None, fname, None,
+                                            errbuff)):
             dname = ctypes.create_string_buffer(YAPI.YOCTO_FUNCTION_LEN)
             moddescr = YAPI.yapiGetFunction("Module", YByte2String(snum.value), errmsgRef)
-            #noinspection PyUnresolvedReference,PyUnresolvedReferences
+            # noinspection PyUnresolvedReference,PyUnresolvedReferences
             if not YAPI.YISERR(moddescr) and not YAPI.YISERR(
-                    YAPI._yapiGetFunctionInfoEx(moddescr, ctypes.byref(devdesc), None, None, None, dname, None, errbuff)):
+                    YAPI._yapiGetFunctionInfoEx(moddescr, ctypes.byref(devdesc), None, None, None, dname, None,
+                                                errbuff)):
                 if YByte2String(dname.value) != "":
                     return "%s" % (YByte2String(dname.value))
             return "%s" % (YByte2String(snum.value))
@@ -5798,7 +6112,7 @@ class YModule(YFunction):
         fundescr = int(functionsRef.value[idx])
 
         res = YAPI.yapiGetFunctionInfoEx(fundescr, devdescrRef, serialRef, funcIdRef, baseType,
-                                       funcNameRef, funcValRef, errmsgRef)
+                                         funcNameRef, funcValRef, errmsgRef)
         if YAPI.YISERR(res):
             return res
 
@@ -5860,7 +6174,7 @@ class YModule(YFunction):
         @param functionIndex : the index of the function for which the information is desired, starting at
         0 for the first function.
 
-        @return a the type of the function
+        @return a string corresponding to the type of the function
 
         On failure, throws an exception or returns an empty string.
         """
@@ -5888,11 +6202,12 @@ class YModule(YFunction):
     def functionBaseType(self, functionIndex):
         """
         Retrieves the base type of the <i>n</i>th function on the module.
+        For instance, the base type of all measuring functions is "Sensor".
 
         @param functionIndex : the index of the function for which the information is desired, starting at
         0 for the first function.
 
-        @return a the base type of the function
+        @return a string corresponding to the base type of the function
 
         On failure, throws an exception or returns an empty string.
         """
@@ -5976,7 +6291,7 @@ class YModule(YFunction):
     def get_logCallback(self):
         return self._logCallback
 
-    #--- (generated code: Module functions)
+    # --- (generated code: YModule functions)
 
     @staticmethod
     def FirstModule():
@@ -6010,10 +6325,10 @@ class YModule(YFunction):
 
         return YModule.FindModule(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of generated code: Module functions)
+#--- (end of generated code: YModule functions)
 
 
-#--- (generated code: YSensor class start)
+# --- (generated code: YSensor class start)
 #noinspection PyProtectedMember
 class YSensor(YFunction):
     """
@@ -6029,9 +6344,9 @@ class YSensor(YFunction):
 
     """
 #--- (end of generated code: YSensor class start)
-    #--- (generated code: YSensor return codes)
+    # --- (generated code: YSensor return codes)
     #--- (end of generated code: YSensor return codes)
-    #--- (generated code: YSensor definitions)
+    # --- (generated code: YSensor definitions)
     UNIT_INVALID = YAPI.INVALID_STRING
     CURRENTVALUE_INVALID = YAPI.INVALID_DOUBLE
     LOWESTVALUE_INVALID = YAPI.INVALID_DOUBLE
@@ -6042,12 +6357,17 @@ class YSensor(YFunction):
     CALIBRATIONPARAM_INVALID = YAPI.INVALID_STRING
     RESOLUTION_INVALID = YAPI.INVALID_DOUBLE
     SENSORSTATE_INVALID = YAPI.INVALID_INT
+    ADVMODE_IMMEDIATE = 0
+    ADVMODE_PERIOD_AVG = 1
+    ADVMODE_PERIOD_MIN = 2
+    ADVMODE_PERIOD_MAX = 3
+    ADVMODE_INVALID = -1
     #--- (end of generated code: YSensor definitions)
 
     def __init__(self, func):
         super(YSensor, self).__init__(func)
         self._className = "Sensor"
-        #--- (generated code: YSensor attributes)
+        # --- (generated code: YSensor attributes)
         self._callback = None
         self._unit = YSensor.UNIT_INVALID
         self._currentValue = YSensor.CURRENTVALUE_INVALID
@@ -6056,6 +6376,7 @@ class YSensor(YFunction):
         self._currentRawValue = YSensor.CURRENTRAWVALUE_INVALID
         self._logFrequency = YSensor.LOGFREQUENCY_INVALID
         self._reportFrequency = YSensor.REPORTFREQUENCY_INVALID
+        self._advMode = YSensor.ADVMODE_INVALID
         self._calibrationParam = YSensor.CALIBRATIONPARAM_INVALID
         self._resolution = YSensor.RESOLUTION_INVALID
         self._sensorState = YSensor.SENSORSTATE_INVALID
@@ -6074,39 +6395,31 @@ class YSensor(YFunction):
         self._calhdl = None
         #--- (end of generated code: YSensor attributes)
 
-    #--- (generated code: YSensor implementation)
-    def _parseAttr(self, member):
-        if member.name == "unit":
-            self._unit = member.svalue
-            return 1
-        if member.name == "currentValue":
-            self._currentValue = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "lowestValue":
-            self._lowestValue = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "highestValue":
-            self._highestValue = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "currentRawValue":
-            self._currentRawValue = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "logFrequency":
-            self._logFrequency = member.svalue
-            return 1
-        if member.name == "reportFrequency":
-            self._reportFrequency = member.svalue
-            return 1
-        if member.name == "calibrationParam":
-            self._calibrationParam = member.svalue
-            return 1
-        if member.name == "resolution":
-            self._resolution = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "sensorState":
-            self._sensorState = member.ivalue
-            return 1
-        super(YSensor, self)._parseAttr(member)
+    # --- (generated code: YSensor implementation)
+    def _parseAttr(self, json_val):
+        if json_val.has("unit"):
+            self._unit = json_val.getString("unit")
+        if json_val.has("currentValue"):
+            self._currentValue = round(json_val.getDouble("currentValue") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("lowestValue"):
+            self._lowestValue = round(json_val.getDouble("lowestValue") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("highestValue"):
+            self._highestValue = round(json_val.getDouble("highestValue") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("currentRawValue"):
+            self._currentRawValue = round(json_val.getDouble("currentRawValue") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("logFrequency"):
+            self._logFrequency = json_val.getString("logFrequency")
+        if json_val.has("reportFrequency"):
+            self._reportFrequency = json_val.getString("reportFrequency")
+        if json_val.has("advMode"):
+            self._advMode = json_val.getInt("advMode")
+        if json_val.has("calibrationParam"):
+            self._calibrationParam = json_val.getString("calibrationParam")
+        if json_val.has("resolution"):
+            self._resolution = round(json_val.getDouble("resolution") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("sensorState"):
+            self._sensorState = json_val.getInt("sensorState")
+        super(YSensor, self)._parseAttr(json_val)
 
     def get_unit(self):
         """
@@ -6116,10 +6429,12 @@ class YSensor(YFunction):
 
         On failure, throws an exception or returns YSensor.UNIT_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSensor.UNIT_INVALID
-        return self._unit
+        res = self._unit
+        return res
 
     def get_currentValue(self):
         """
@@ -6138,7 +6453,8 @@ class YSensor(YFunction):
         if res == YSensor.CURRENTVALUE_INVALID:
             res = self._currentValue
         res = res * self._iresol
-        return round(res) / self._iresol
+        res = round(res) / self._iresol
+        return res
 
     def set_lowestValue(self, newval):
         """
@@ -6167,7 +6483,8 @@ class YSensor(YFunction):
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSensor.LOWESTVALUE_INVALID
         res = self._lowestValue * self._iresol
-        return round(res) / self._iresol
+        res = round(res) / self._iresol
+        return res
 
     def set_highestValue(self, newval):
         """
@@ -6196,7 +6513,8 @@ class YSensor(YFunction):
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSensor.HIGHESTVALUE_INVALID
         res = self._highestValue * self._iresol
-        return round(res) / self._iresol
+        res = round(res) / self._iresol
+        return res
 
     def get_currentRawValue(self):
         """
@@ -6208,10 +6526,12 @@ class YSensor(YFunction):
 
         On failure, throws an exception or returns YSensor.CURRENTRAWVALUE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSensor.CURRENTRAWVALUE_INVALID
-        return self._currentRawValue
+        res = self._currentRawValue
+        return res
 
     def get_logFrequency(self):
         """
@@ -6223,10 +6543,12 @@ class YSensor(YFunction):
 
         On failure, throws an exception or returns YSensor.LOGFREQUENCY_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSensor.LOGFREQUENCY_INVALID
-        return self._logFrequency
+        res = self._logFrequency
+        return res
 
     def set_logFrequency(self, newval):
         """
@@ -6255,10 +6577,12 @@ class YSensor(YFunction):
 
         On failure, throws an exception or returns YSensor.REPORTFREQUENCY_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSensor.REPORTFREQUENCY_INVALID
-        return self._reportFrequency
+        res = self._reportFrequency
+        return res
 
     def set_reportFrequency(self, newval):
         """
@@ -6277,11 +6601,45 @@ class YSensor(YFunction):
         rest_val = newval
         return self._setAttr("reportFrequency", rest_val)
 
+    def get_advMode(self):
+        """
+        Returns the measuring mode used for the advertised value pushed to the parent hub.
+
+        @return a value among YSensor.ADVMODE_IMMEDIATE, YSensor.ADVMODE_PERIOD_AVG,
+        YSensor.ADVMODE_PERIOD_MIN and YSensor.ADVMODE_PERIOD_MAX corresponding to the measuring mode used
+        for the advertised value pushed to the parent hub
+
+        On failure, throws an exception or returns YSensor.ADVMODE_INVALID.
+        """
+        # res
+        if self._cacheExpiration <= YAPI.GetTickCount():
+            if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
+                return YSensor.ADVMODE_INVALID
+        res = self._advMode
+        return res
+
+    def set_advMode(self, newval):
+        """
+        Changes the measuring mode used for the advertised value pushed to the parent hub.
+
+        @param newval : a value among YSensor.ADVMODE_IMMEDIATE, YSensor.ADVMODE_PERIOD_AVG,
+        YSensor.ADVMODE_PERIOD_MIN and YSensor.ADVMODE_PERIOD_MAX corresponding to the measuring mode used
+        for the advertised value pushed to the parent hub
+
+        @return YAPI.SUCCESS if the call succeeds.
+
+        On failure, throws an exception or returns a negative error code.
+        """
+        rest_val = str(newval)
+        return self._setAttr("advMode", rest_val)
+
     def get_calibrationParam(self):
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSensor.CALIBRATIONPARAM_INVALID
-        return self._calibrationParam
+        res = self._calibrationParam
+        return res
 
     def set_calibrationParam(self, newval):
         rest_val = newval
@@ -6310,10 +6668,12 @@ class YSensor(YFunction):
 
         On failure, throws an exception or returns YSensor.RESOLUTION_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSensor.RESOLUTION_INVALID
-        return self._resolution
+        res = self._resolution
+        return res
 
     def get_sensorState(self):
         """
@@ -6326,10 +6686,12 @@ class YSensor(YFunction):
 
         On failure, throws an exception or returns YSensor.SENSORSTATE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSensor.SENSORSTATE_INVALID
-        return self._sensorState
+        res = self._sensorState
+        return res
 
     @staticmethod
     def FindSensor(func):
@@ -6351,6 +6713,10 @@ class YSensor(YFunction):
         a sensor by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string that uniquely characterizes the sensor
 
@@ -6388,20 +6754,20 @@ class YSensor(YFunction):
             self._caltyp = 0
             return 0
         if self._calibrationParam.find(",") >= 0:
-            #
+            # // Plain text format
             iCalib = YAPI._decodeFloats(self._calibrationParam)
             self._caltyp = int((iCalib[0]) / (1000))
             if self._caltyp > 0:
                 if self._caltyp < YAPI.YOCTO_CALIB_TYPE_OFS:
-                    #
+                    # // Unknown calibration type: calibrated value will be provided by the device
                     self._caltyp = -1
                     return 0
                 self._calhdl = YAPI._getCalibrationHandler(self._caltyp)
                 if not (self._calhdl is not None):
-                    #
+                    # // Unknown calibration type: calibrated value will be provided by the device
                     self._caltyp = -1
                     return 0
-            #
+            # // New 32bit text format
             self._isScal = True
             self._isScal32 = True
             self._offset = 0
@@ -6424,13 +6790,13 @@ class YSensor(YFunction):
                 self._calref.append(fRef)
                 position = position + 2
         else:
-            #
+            # // Recorder-encoded format, including encoding
             iCalib = YAPI._decodeWords(self._calibrationParam)
-            #
+            # // In case of unknown format, calibrated value will be provided by the device
             if len(iCalib) < 2:
                 self._caltyp = -1
                 return 0
-            #
+            # // Save variable format (scale for scalar, or decimal exponent)
             self._isScal = (iCalib[1] > 0)
             if self._isScal:
                 self._offset = iCalib[0]
@@ -6446,13 +6812,13 @@ class YSensor(YFunction):
                 while position > 0:
                     self._decexp = self._decexp * 10
                     position = position - 1
-            #
+            # // Shortcut when there is no calibration parameter
             if len(iCalib) == 2:
                 self._caltyp = 0
                 return 0
             self._caltyp = iCalib[2]
             self._calhdl = YAPI._getCalibrationHandler(self._caltyp)
-            #
+            # // parse calibration points
             if self._caltyp <= 10:
                 maxpos = self._caltyp
             else:
@@ -6500,6 +6866,27 @@ class YSensor(YFunction):
             return False
         return True
 
+    def get_dataLogger(self):
+        """
+        Returns the YDatalogger object of the device hosting the sensor. This method returns an object of
+        class YDatalogger that can control global parameters of the data logger. The returned object
+        should not be freed.
+
+        @return an YDataLogger object or None on error.
+        """
+        # logger
+        # modu
+        # serial
+        # hwid
+
+        modu = self.get_module()
+        serial = modu.get_serialNumber()
+        if serial == YAPI.INVALID_STRING:
+            return None
+        hwid = serial + ".dataLogger"
+        logger  = YDataLogger.FindDataLogger(hwid)
+        return logger
+
     def startDataLogger(self):
         """
         Starts the data logger on the device. Note that the data logger
@@ -6509,7 +6896,7 @@ class YSensor(YFunction):
         @return YAPI.SUCCESS if the call succeeds.
         """
         # res
-        # // may throw an exception
+
         res = self._download("api/dataLogger/recording?recording=1")
         if not (len(res)>0):
             self._throw(YAPI.IO_ERROR, "unable to start datalogger")
@@ -6522,7 +6909,7 @@ class YSensor(YFunction):
         @return YAPI.SUCCESS if the call succeeds.
         """
         # res
-        # // may throw an exception
+
         res = self._download("api/dataLogger/recording?recording=0")
         if not (len(res)>0):
             self._throw(YAPI.IO_ERROR, "unable to stop datalogger")
@@ -6557,7 +6944,7 @@ class YSensor(YFunction):
         """
         # funcid
         # funit
-        # // may throw an exception
+
         funcid = self.get_functionId()
         funit = self.get_unit()
         return YDataSet(self, funcid, funit, startTime, endTime)
@@ -6611,9 +6998,11 @@ class YSensor(YFunction):
         On failure, throws an exception or returns a negative error code.
         """
         # rest_val
-        # // may throw an exception
+        # res
+
         rest_val = self._encodeCalibrationPoints(rawValues, refValues)
-        return self._setAttr("calibrationParam", rest_val)
+        res = self._setAttr("calibrationParam", rest_val)
+        return res
 
     def loadCalibrationPoints(self, rawValues, refValues):
         """
@@ -6668,7 +7057,7 @@ class YSensor(YFunction):
             self._throw(YAPI.NOT_SUPPORTED, "Calibration parameters format mismatch. Please upgrade your library or firmware.")
             return "0"
         if self._isScal32:
-            #
+            # // 32-bit fixed-point encoding
             res = "" + str(int(YAPI.YOCTO_CALIB_TYPE_OFS))
             idx = 0
             while idx < npt:
@@ -6676,7 +7065,7 @@ class YSensor(YFunction):
                 idx = idx + 1
         else:
             if self._isScal:
-                #
+                # // 16-bit fixed-point encoding
                 res = "" + str(int(npt))
                 idx = 0
                 while idx < npt:
@@ -6685,7 +7074,7 @@ class YSensor(YFunction):
                     res = "" + res + "," + str(int(iRaw)) + "," + str(int(iRef))
                     idx = idx + 1
             else:
-                #
+                # // 16-bit floating-point decimal encoding
                 res = "" + str(int(10 + npt))
                 idx = 0
                 while idx < npt:
@@ -6726,9 +7115,9 @@ class YSensor(YFunction):
         if startTime == 0:
             startTime = endTime
         if report[0] == 2:
-            #
+            # // 32bit timed report format
             if len(report) <= 5:
-                #
+                # // sub-second report, 1-4 bytes
                 poww = 1
                 avgRaw = 0
                 byteVal = 0
@@ -6747,7 +7136,7 @@ class YSensor(YFunction):
                 minVal = avgVal
                 maxVal = avgVal
             else:
-                #
+                # // averaged report: avg,avg-min,max-avg
                 sublen = 1 + ((report[1]) & (3))
                 poww = 1
                 avgRaw = 0
@@ -6790,9 +7179,9 @@ class YSensor(YFunction):
                         minVal = self._calhdl(minVal, self._caltyp, self._calpar, self._calraw, self._calref)
                         maxVal = self._calhdl(maxVal, self._caltyp, self._calpar, self._calraw, self._calref)
         else:
-            #
+            # // 16bit timed report format
             if report[0] == 0:
-                #
+                # // sub-second report, 1-4 bytes
                 poww = 1
                 avgRaw = 0
                 byteVal = 0
@@ -6811,7 +7200,7 @@ class YSensor(YFunction):
                 minVal = avgVal
                 maxVal = avgVal
             else:
-                #
+                # // averaged report 2+4+2 bytes
                 minRaw = report[1] + 0x100 * report[2]
                 maxRaw = report[3] + 0x100 * report[4]
                 avgRaw = report[5] + 0x100 * report[6] + 0x10000 * report[7]
@@ -6827,7 +7216,7 @@ class YSensor(YFunction):
 
     def _decodeVal(self, w):
         # val
-        val = w
+        val = w if w <= 0x7fffffff else -0x100000000 + w
         if self._isScal:
             val = (val - self._offset) / self._scale
         else:
@@ -6839,7 +7228,7 @@ class YSensor(YFunction):
 
     def _decodeAvg(self, dw):
         # val
-        val = dw
+        val = dw if dw <= 0x7fffffff else -0x100000000 + dw
         if self._isScal:
             val = (val / 100 - self._offset) / self._scale
         else:
@@ -6866,7 +7255,7 @@ class YSensor(YFunction):
 
 #--- (end of generated code: YSensor implementation)
 
-    #--- (generated code: Sensor functions)
+    # --- (generated code: YSensor functions)
 
     @staticmethod
     def FirstSensor():
@@ -6900,4 +7289,602 @@ class YSensor(YFunction):
 
         return YSensor.FindSensor(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of generated code: Sensor functions)
+#--- (end of generated code: YSensor functions)
+
+# --- (generated code: YDataLogger class start)
+#noinspection PyProtectedMember
+class YDataLogger(YFunction):
+    """
+    Yoctopuce sensors include a non-volatile memory capable of storing ongoing measured
+    data automatically, without requiring a permanent connection to a computer.
+    The DataLogger function controls the global parameters of the internal data
+    logger.
+
+    """
+#--- (end of generated code: YDataLogger class start)
+
+    Y_DATA_INVALID = YAPI.INVALID_DOUBLE
+
+    # --- (generated code: YDataLogger definitions)
+    CURRENTRUNINDEX_INVALID = YAPI.INVALID_UINT
+    TIMEUTC_INVALID = YAPI.INVALID_LONG
+    RECORDING_OFF = 0
+    RECORDING_ON = 1
+    RECORDING_PENDING = 2
+    RECORDING_INVALID = -1
+    AUTOSTART_OFF = 0
+    AUTOSTART_ON = 1
+    AUTOSTART_INVALID = -1
+    BEACONDRIVEN_OFF = 0
+    BEACONDRIVEN_ON = 1
+    BEACONDRIVEN_INVALID = -1
+    CLEARHISTORY_FALSE = 0
+    CLEARHISTORY_TRUE = 1
+    CLEARHISTORY_INVALID = -1
+    #--- (end of generated code: YDataLogger definitions)
+
+    def __init__(self, func):
+        super(YDataLogger, self).__init__(func)
+        self._className = "DataLogger"
+        # --- (generated code: YDataLogger attributes)
+        self._callback = None
+        self._currentRunIndex = YDataLogger.CURRENTRUNINDEX_INVALID
+        self._timeUTC = YDataLogger.TIMEUTC_INVALID
+        self._recording = YDataLogger.RECORDING_INVALID
+        self._autoStart = YDataLogger.AUTOSTART_INVALID
+        self._beaconDriven = YDataLogger.BEACONDRIVEN_INVALID
+        self._clearHistory = YDataLogger.CLEARHISTORY_INVALID
+        #--- (end of generated code: YDataLogger attributes)
+        self._dataLoggerURL = ""
+
+    # --- (generated code: YDataLogger implementation)
+    def _parseAttr(self, json_val):
+        if json_val.has("currentRunIndex"):
+            self._currentRunIndex = json_val.getInt("currentRunIndex")
+        if json_val.has("timeUTC"):
+            self._timeUTC = json_val.getLong("timeUTC")
+        if json_val.has("recording"):
+            self._recording = json_val.getInt("recording")
+        if json_val.has("autoStart"):
+            self._autoStart = (json_val.getInt("autoStart") > 0 if 1 else 0)
+        if json_val.has("beaconDriven"):
+            self._beaconDriven = (json_val.getInt("beaconDriven") > 0 if 1 else 0)
+        if json_val.has("clearHistory"):
+            self._clearHistory = (json_val.getInt("clearHistory") > 0 if 1 else 0)
+        super(YDataLogger, self)._parseAttr(json_val)
+
+    def get_currentRunIndex(self):
+        """
+        Returns the current run number, corresponding to the number of times the module was
+        powered on with the dataLogger enabled at some point.
+
+        @return an integer corresponding to the current run number, corresponding to the number of times the module was
+                powered on with the dataLogger enabled at some point
+
+        On failure, throws an exception or returns YDataLogger.CURRENTRUNINDEX_INVALID.
+        """
+        # res
+        if self._cacheExpiration <= YAPI.GetTickCount():
+            if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
+                return YDataLogger.CURRENTRUNINDEX_INVALID
+        res = self._currentRunIndex
+        return res
+
+    def get_timeUTC(self):
+        """
+        Returns the Unix timestamp for current UTC time, if known.
+
+        @return an integer corresponding to the Unix timestamp for current UTC time, if known
+
+        On failure, throws an exception or returns YDataLogger.TIMEUTC_INVALID.
+        """
+        # res
+        if self._cacheExpiration <= YAPI.GetTickCount():
+            if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
+                return YDataLogger.TIMEUTC_INVALID
+        res = self._timeUTC
+        return res
+
+    def set_timeUTC(self, newval):
+        """
+        Changes the current UTC time reference used for recorded data.
+
+        @param newval : an integer corresponding to the current UTC time reference used for recorded data
+
+        @return YAPI.SUCCESS if the call succeeds.
+
+        On failure, throws an exception or returns a negative error code.
+        """
+        rest_val = str(newval)
+        return self._setAttr("timeUTC", rest_val)
+
+    def get_recording(self):
+        """
+        Returns the current activation state of the data logger.
+
+        @return a value among YDataLogger.RECORDING_OFF, YDataLogger.RECORDING_ON and
+        YDataLogger.RECORDING_PENDING corresponding to the current activation state of the data logger
+
+        On failure, throws an exception or returns YDataLogger.RECORDING_INVALID.
+        """
+        # res
+        if self._cacheExpiration <= YAPI.GetTickCount():
+            if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
+                return YDataLogger.RECORDING_INVALID
+        res = self._recording
+        return res
+
+    def set_recording(self, newval):
+        """
+        Changes the activation state of the data logger to start/stop recording data.
+
+        @param newval : a value among YDataLogger.RECORDING_OFF, YDataLogger.RECORDING_ON and
+        YDataLogger.RECORDING_PENDING corresponding to the activation state of the data logger to
+        start/stop recording data
+
+        @return YAPI.SUCCESS if the call succeeds.
+
+        On failure, throws an exception or returns a negative error code.
+        """
+        rest_val = str(newval)
+        return self._setAttr("recording", rest_val)
+
+    def get_autoStart(self):
+        """
+        Returns the default activation state of the data logger on power up.
+
+        @return either YDataLogger.AUTOSTART_OFF or YDataLogger.AUTOSTART_ON, according to the default
+        activation state of the data logger on power up
+
+        On failure, throws an exception or returns YDataLogger.AUTOSTART_INVALID.
+        """
+        # res
+        if self._cacheExpiration <= YAPI.GetTickCount():
+            if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
+                return YDataLogger.AUTOSTART_INVALID
+        res = self._autoStart
+        return res
+
+    def set_autoStart(self, newval):
+        """
+        Changes the default activation state of the data logger on power up.
+        Remember to call the saveToFlash() method of the module if the
+        modification must be kept.
+
+        @param newval : either YDataLogger.AUTOSTART_OFF or YDataLogger.AUTOSTART_ON, according to the
+        default activation state of the data logger on power up
+
+        @return YAPI.SUCCESS if the call succeeds.
+
+        On failure, throws an exception or returns a negative error code.
+        """
+        rest_val = "1" if newval > 0 else "0"
+        return self._setAttr("autoStart", rest_val)
+
+    def get_beaconDriven(self):
+        """
+        Returns true if the data logger is synchronised with the localization beacon.
+
+        @return either YDataLogger.BEACONDRIVEN_OFF or YDataLogger.BEACONDRIVEN_ON, according to true if
+        the data logger is synchronised with the localization beacon
+
+        On failure, throws an exception or returns YDataLogger.BEACONDRIVEN_INVALID.
+        """
+        # res
+        if self._cacheExpiration <= YAPI.GetTickCount():
+            if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
+                return YDataLogger.BEACONDRIVEN_INVALID
+        res = self._beaconDriven
+        return res
+
+    def set_beaconDriven(self, newval):
+        """
+        Changes the type of synchronisation of the data logger.
+        Remember to call the saveToFlash() method of the module if the
+        modification must be kept.
+
+        @param newval : either YDataLogger.BEACONDRIVEN_OFF or YDataLogger.BEACONDRIVEN_ON, according to
+        the type of synchronisation of the data logger
+
+        @return YAPI.SUCCESS if the call succeeds.
+
+        On failure, throws an exception or returns a negative error code.
+        """
+        rest_val = "1" if newval > 0 else "0"
+        return self._setAttr("beaconDriven", rest_val)
+
+    def get_clearHistory(self):
+        # res
+        if self._cacheExpiration <= YAPI.GetTickCount():
+            if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
+                return YDataLogger.CLEARHISTORY_INVALID
+        res = self._clearHistory
+        return res
+
+    def set_clearHistory(self, newval):
+        rest_val = "1" if newval > 0 else "0"
+        return self._setAttr("clearHistory", rest_val)
+
+    @staticmethod
+    def FindDataLogger(func):
+        """
+        Retrieves a data logger for a given identifier.
+        The identifier can be specified using several formats:
+        <ul>
+        <li>FunctionLogicalName</li>
+        <li>ModuleSerialNumber.FunctionIdentifier</li>
+        <li>ModuleSerialNumber.FunctionLogicalName</li>
+        <li>ModuleLogicalName.FunctionIdentifier</li>
+        <li>ModuleLogicalName.FunctionLogicalName</li>
+        </ul>
+
+        This function does not require that the data logger is online at the time
+        it is invoked. The returned object is nevertheless valid.
+        Use the method YDataLogger.isOnline() to test if the data logger is
+        indeed online at a given time. In case of ambiguity when looking for
+        a data logger by logical name, no error is notified: the first instance
+        found is returned. The search is performed first by hardware name,
+        then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
+
+        @param func : a string that uniquely characterizes the data logger
+
+        @return a YDataLogger object allowing you to drive the data logger.
+        """
+        # obj
+        obj = YFunction._FindFromCache("DataLogger", func)
+        if obj is None:
+            obj = YDataLogger(func)
+            YFunction._AddToCache("DataLogger", func, obj)
+        return obj
+
+    def forgetAllDataStreams(self):
+        """
+        Clears the data logger memory and discards all recorded data streams.
+        This method also resets the current run index to zero.
+
+        @return YAPI.SUCCESS if the call succeeds.
+
+        On failure, throws an exception or returns a negative error code.
+        """
+        return self.set_clearHistory(YDataLogger.CLEARHISTORY_TRUE)
+
+    def get_dataSets(self):
+        """
+        Returns a list of YDataSet objects that can be used to retrieve
+        all measures stored by the data logger.
+
+        This function only works if the device uses a recent firmware,
+        as YDataSet objects are not supported by firmwares older than
+        version 13000.
+
+        @return a list of YDataSet object.
+
+        On failure, throws an exception or returns an empty list.
+        """
+        return self.parse_dataSets(self._download("logger.json"))
+
+    def parse_dataSets(self, json):
+        dslist = []
+        # dataset
+        res = []
+
+        dslist = self._json_get_array(json)
+        del res[:]
+        for y in dslist:
+            dataset = YDataSet(self)
+            dataset._parse(y)
+            res.append(dataset)
+        return res
+
+    def nextDataLogger(self):
+        """
+        Continues the enumeration of data loggers started using yFirstDataLogger().
+
+        @return a pointer to a YDataLogger object, corresponding to
+                a data logger currently online, or a None pointer
+                if there are no more data loggers to enumerate.
+        """
+        hwidRef = YRefParam()
+        if YAPI.YISERR(self._nextFunction(hwidRef)):
+            return None
+        if hwidRef.value == "":
+            return None
+        return YDataLogger.FindDataLogger(hwidRef.value)
+
+#--- (end of generated code: YDataLogger implementation)
+
+    def getData(self, runIdx, timeIdx, jsondataRef):
+        devRef = YRefParam()
+        errmsgRef = YRefParam()
+        bufferRef = YRefParam()
+        if self._dataLoggerURL == "":
+            self._dataLoggerURL = "/logger.json"
+
+        # Resolve our reference to our device, load REST API
+        res = self._getDevice(devRef, errmsgRef)
+        if YAPI.YISERR(res):
+            self._throw(res, errmsgRef.value)
+            return res
+        if timeIdx > 0:
+            query = "GET " + self._dataLoggerURL + "?run=" + str(runIdx) + "&time=" + str(timeIdx) + " HTTP/1.1\r\n\r\n"
+        else:
+            query = "GET " + self._dataLoggerURL + " HTTP/1.1\r\n\r\n"
+        res = devRef.value.HTTPRequest(query, bufferRef, errmsgRef)
+        if YAPI.YISERR(res):
+            res = YAPI.UpdateDeviceList(errmsgRef)
+            if YAPI.YISERR(res):
+                self._throw(res, errmsgRef.value)
+                return res
+            res = devRef.value.HTTPRequest("GET " + self._dataLoggerURL + " HTTP/1.1\n\r\n\r", bufferRef, errmsgRef)
+            if YAPI.YISERR(res):
+                self._throw(res, errmsgRef.value)
+                return res
+
+        buffer = YByte2String(bufferRef.value)
+        (httpcode, http_headerlen, errmsg) = YAPI.parseHTTP(buffer, 0, len(buffer))
+        if httpcode != 200:
+            errmsgRef.value = "Unexpected HTTP return code:%s" % httpcode
+            return YAPI.IO_ERROR
+
+        jsondataRef.value = buffer[http_headerlen:]
+        return YAPI.SUCCESS
+
+    def get_dataStreams(self, v):
+        """
+        Builds a list of all data streams hold by the data logger (legacy method).
+        The caller must pass by reference an empty array to hold YDataStream
+        objects, and the function fills it with objects describing available
+        data sequences.
+
+        This is the old way to retrieve data from the DataLogger.
+        For new applications, you should rather use get_dataSets()
+        method, or call directly get_recordedData() on the
+        sensor object.
+
+        @param v : an array of YDataStream objects to be filled in
+
+        @return YAPI.SUCCESS if the call succeeds.
+
+        On failure, throws an exception or returns a negative error code.
+        """
+        jRef = YRefParam()
+        v.value = []
+        res = self.getData(0, 0, jRef)
+        if res != YAPI.SUCCESS:
+            return res
+
+        jsonAllStreams = YJSONArray(jRef.value, 0, len(jRef.value))
+        jsonAllStreams.parse()
+        if jsonAllStreams.length() == 0:
+            return YAPI.SUCCESS
+        if jsonAllStreams.get(0).getJSONType() == YJSONType.ARRAY:
+            for i in range(0, jsonAllStreams.length()):
+                # old datalogger format: [runIdx, timerel, utc, interval]
+                arr = jsonAllStreams.getYJSONArray(i)
+                stream = YOldDataStream(self, arr.getInt(0), arr.getInt(1), arr.getLong(2), arr.getInt(3))
+                v.value.append(stream)
+        else:
+            # new datalogger format: {"id": "...", "unit": "...", "streams": ["...", ...]}
+            sets = self.parse_dataSets(YString2Byte(jsonAllStreams.toJSON()))
+            for curset in sets:
+                ds = curset.get_privateDataStreams()
+                for si in ds:
+                    # return a user-owned copy
+                    v.value.append(si)
+        return YAPI.SUCCESS
+
+    # --- (generated code: YDataLogger functions)
+
+    @staticmethod
+    def FirstDataLogger():
+        """
+        Starts the enumeration of data loggers currently accessible.
+        Use the method YDataLogger.nextDataLogger() to iterate on
+        next data loggers.
+
+        @return a pointer to a YDataLogger object, corresponding to
+                the first data logger currently online, or a None pointer
+                if there are none.
+        """
+        devRef = YRefParam()
+        neededsizeRef = YRefParam()
+        serialRef = YRefParam()
+        funcIdRef = YRefParam()
+        funcNameRef = YRefParam()
+        funcValRef = YRefParam()
+        errmsgRef = YRefParam()
+        size = YAPI.C_INTSIZE
+        #noinspection PyTypeChecker,PyCallingNonCallable
+        p = (ctypes.c_int * 1)()
+        err = YAPI.apiGetFunctionsByClass("DataLogger", 0, p, size, neededsizeRef, errmsgRef)
+
+        if YAPI.YISERR(err) or not neededsizeRef.value:
+            return None
+
+        if YAPI.YISERR(
+                YAPI.yapiGetFunctionInfo(p[0], devRef, serialRef, funcIdRef, funcNameRef, funcValRef, errmsgRef)):
+            return None
+
+        return YDataLogger.FindDataLogger(serialRef.value + "." + funcIdRef.value)
+
+#--- (end of generated code: YDataLogger functions)
+
+
+class YOldDataStream(YDataStream):
+    def __init__(self, parent, run, stamp, utc, itv):
+        super(YOldDataStream, self).__init__(parent)
+        self._dataLogger = parent
+        self._runNo = run
+        self._timeStamp = stamp
+        self._utcStamp = utc
+        self._interval = itv
+        self._samplesPerHour = 3600 / self._interval
+        self._isClosed = 1
+        self._minVal = self.DATA_INVALID
+        self._avgVal = self.DATA_INVALID
+        self._maxVal = self.DATA_INVALID
+
+    def get_startTime(self):
+        """
+        Returns the relative start time of the data stream, measured in seconds.
+        For recent firmwares, the value is relative to the present time,
+        which means the value is always negative.
+        If the device uses a firmware older than version 13000, value is
+        relative to the start of the time the device was powered on, and
+        is always positive.
+        If you need an absolute UTC timestamp, use get_startTimeUTC().
+
+        @return an unsigned number corresponding to the number of seconds
+                between the start of the run and the beginning of this data
+                stream.
+        """
+        return self._timeStamp
+
+    def get_dataSamplesInterval(self):
+        """
+        Returns the number of seconds elapsed between  two consecutive
+        rows of this data stream. By default, the data logger records one row
+        per second, but there might be alternative streams at lower resolution
+        created by summarizing the original stream for archiving purposes.
+
+        This method does not cause any access to the device, as the value
+        is preloaded in the object at instantiation time.
+
+        @return an unsigned number corresponding to a number of seconds.
+        """
+        return self._interval
+
+    def loadStream(self):
+        jsonRef = YRefParam()
+        coldiv = []
+        coltype = []
+        udat = []
+        colscl = []
+        colofs = []
+        c = 0
+        x = 0
+        y = 0
+        res = self._dataLogger.getData(self._runNo, self._timeStamp, jsonRef)
+        if res != YAPI.SUCCESS:
+            return res
+        jsonObj = YJSONObject(jsonRef.value, 0, len(jsonRef.value))
+        jsonObj.parse()
+        self._nRows = 0
+        self._nCols = 0
+        del self._columnNames[:]
+        self._values = [[]]
+        if jsonObj.has("time"):
+            self._timeStamp = jsonObj.getInt("time")
+        if jsonObj.has("UTC"):
+            self._utcStamp = jsonObj.getLong("UTC")
+        if jsonObj.has("interval"):
+            self._interval = jsonObj.getInt("interval")
+        if jsonObj.has("nRows"):
+            self._nRows = jsonObj.getInt("nRows")
+        if jsonObj.has("keys"):
+            jsonKeys = jsonObj.getYJSONArray("keys")
+            if self._nCols == 0:
+                self._nCols = jsonKeys.length()
+            elif self._nCols != jsonKeys.length():
+                self._nCols = 0
+                raise YAPI_Exception(YAPI.IO_ERROR, "DataStream corrupted")
+            for j in range(0, self._nCols):
+                self._columnNames.append(jsonKeys.getString(j))
+        if jsonObj.has("div"):
+            coldiv = jsonObj.getYJSONArray("div")
+            if self._nCols == 0:
+                self._nCols = coldiv.length()
+            elif self._nCols != coldiv.length():
+                self._nCols = 0
+                raise YAPI_Exception(YAPI.IO_ERROR, "DataStream corrupted")
+            for j in range(self._nCols):
+                coldiv.append(coldiv.getInt(j))
+        if jsonObj.has("type"):
+            types = jsonObj.getYJSONArray("type")
+            if self._nCols == 0:
+                self._nCols = types.length()
+            elif self._nCols != types.length():
+                self._nCols = 0
+                raise YAPI_Exception(YAPI.IO_ERROR, "DataStream corrupted")
+            for j in range(self._nCols):
+                coltype.append(types.getInt(j))
+        if jsonObj.has("scal"):
+            scal = jsonObj.getYJSONArray("scal")
+            if self._nCols == 0:
+                self._nCols = scal.length()
+            elif self._nCols != scal.length():
+                self._nCols = 0
+                raise YAPI_Exception(YAPI.IO_ERROR, "DataStream corrupted")
+            for j in range(self._nCols):
+                colscl.append(scal.getInt(j) / 65536.0)
+                if coltype[j]:
+                    colofs.append(-32767)
+                else:
+                    colofs.append(0)
+
+        if jsonObj.has("data"):
+            if self._nCols == 0 or len(coldiv) == 0 or len(coltype) == 0:
+                raise YAPI_Exception(YAPI.IO_ERROR, "DataStream corrupted")
+
+            if len(colscl) <= 0:
+                for j in range(self._nCols):
+                    colscl.append(1.0 / coldiv[j])
+                    if coltype[j]:
+                        colofs[j] = -32767
+                    else:
+                        colofs[j] = 0
+
+            del udat[:]
+            dat = jsonObj.get("data")
+            if dat.getYJSONType() == YJSONType.STRING:
+                sdat = jsonObj.getString("data")
+                p = 0
+                while p < len(sdat):
+                    c = sdat[p]
+                    p += 1
+                    if c >= 'a':
+                        srcpos = int(len(udat) - 1 - (ord(c) - ord('a')))
+                        if srcpos < 0:
+                            # noinspection PyProtectedMember
+                            self._dataLogger._throw(YAPI.IO_ERROR, "Unexpected JSON reply format")
+                            return YAPI.IO_ERROR
+                        val = udat[srcpos]
+                    else:
+                        if p + 2 > len(sdat):
+                            # noinspection PyProtectedMember
+                            self._dataLogger._throw(YAPI.IO_ERROR, "Unexpected JSON reply format")
+                            return YAPI.IO_ERROR
+
+                        val = (ord(c) - ord('0'))
+                        c = sdat[p]
+                        p += 1
+                        val += (ord(c) - ord('0')) << 5
+                        c = sdat[p]
+                        p += 1
+                        if c == 'z':
+                            c = "\\"
+                        val += (ord(c) - ord('0')) << 10
+                    udat.append(val)
+            else:
+                arr = jsonObj.getYJSONArray("data")
+                count = arr.length()
+                for j in range(count):
+                    tmp = arr.getInt(j)
+                    udat.append(tmp)
+            self._values = [[0] * self._nCols] * self._nRows
+            for uval in udat:
+                if coltype[x] < 2:
+                    value = (uval + colofs[x]) * colscl[x]
+                else:
+                    # noinspection PyProtectedMember
+                    value = YAPI._decimalToDouble(uval - 32767)
+                self._values[y][x] = value
+                x += 1
+                if x == self._nCols:
+                    x = 0
+                    y += 1
+        return YAPI.SUCCESS

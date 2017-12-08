@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_buzzer.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_buzzer.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindBuzzer(), the high-level API for Buzzer functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -39,6 +40,7 @@
 
 
 __docformat__ = 'restructuredtext en'
+import math
 from yocto_api import *
 
 
@@ -79,26 +81,20 @@ class YBuzzer(YFunction):
         #--- (end of YBuzzer attributes)
 
     #--- (YBuzzer implementation)
-    def _parseAttr(self, member):
-        if member.name == "frequency":
-            self._frequency = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "volume":
-            self._volume = member.ivalue
-            return 1
-        if member.name == "playSeqSize":
-            self._playSeqSize = member.ivalue
-            return 1
-        if member.name == "playSeqMaxSize":
-            self._playSeqMaxSize = member.ivalue
-            return 1
-        if member.name == "playSeqSignature":
-            self._playSeqSignature = member.ivalue
-            return 1
-        if member.name == "command":
-            self._command = member.svalue
-            return 1
-        super(YBuzzer, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("frequency"):
+            self._frequency = round(json_val.getDouble("frequency") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("volume"):
+            self._volume = json_val.getInt("volume")
+        if json_val.has("playSeqSize"):
+            self._playSeqSize = json_val.getInt("playSeqSize")
+        if json_val.has("playSeqMaxSize"):
+            self._playSeqMaxSize = json_val.getInt("playSeqMaxSize")
+        if json_val.has("playSeqSignature"):
+            self._playSeqSignature = json_val.getInt("playSeqSignature")
+        if json_val.has("command"):
+            self._command = json_val.getString("command")
+        super(YBuzzer, self)._parseAttr(json_val)
 
     def set_frequency(self, newval):
         """
@@ -121,10 +117,12 @@ class YBuzzer(YFunction):
 
         On failure, throws an exception or returns YBuzzer.FREQUENCY_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YBuzzer.FREQUENCY_INVALID
-        return self._frequency
+        res = self._frequency
+        return res
 
     def get_volume(self):
         """
@@ -134,10 +132,12 @@ class YBuzzer(YFunction):
 
         On failure, throws an exception or returns YBuzzer.VOLUME_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YBuzzer.VOLUME_INVALID
-        return self._volume
+        res = self._volume
+        return res
 
     def set_volume(self, newval):
         """
@@ -160,10 +160,12 @@ class YBuzzer(YFunction):
 
         On failure, throws an exception or returns YBuzzer.PLAYSEQSIZE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YBuzzer.PLAYSEQSIZE_INVALID
-        return self._playSeqSize
+        res = self._playSeqSize
+        return res
 
     def get_playSeqMaxSize(self):
         """
@@ -173,10 +175,12 @@ class YBuzzer(YFunction):
 
         On failure, throws an exception or returns YBuzzer.PLAYSEQMAXSIZE_INVALID.
         """
-        if self._cacheExpiration == datetime.datetime.fromtimestamp(0):
+        # res
+        if self._cacheExpiration == datetime.datetime.fromtimestamp(86400):
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YBuzzer.PLAYSEQMAXSIZE_INVALID
-        return self._playSeqMaxSize
+        res = self._playSeqMaxSize
+        return res
 
     def get_playSeqSignature(self):
         """
@@ -189,16 +193,20 @@ class YBuzzer(YFunction):
 
         On failure, throws an exception or returns YBuzzer.PLAYSEQSIGNATURE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YBuzzer.PLAYSEQSIGNATURE_INVALID
-        return self._playSeqSignature
+        res = self._playSeqSignature
+        return res
 
     def get_command(self):
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YBuzzer.COMMAND_INVALID
-        return self._command
+        res = self._command
+        return res
 
     def set_command(self, newval):
         rest_val = newval
@@ -225,6 +233,10 @@ class YBuzzer(YFunction):
         found is returned. The search is performed first by hardware name,
         then by logical name.
 
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
+
         @param func : a string that uniquely characterizes the buzzer
 
         @return a YBuzzer object allowing you to drive the buzzer.
@@ -237,8 +249,7 @@ class YBuzzer(YFunction):
         return obj
 
     def sendCommand(self, command):
-        # //may throw an exception
-                return self.set_command(command)
+        return self.set_command(command)
 
     def addFreqMoveToPlaySeq(self, freq, msDelay):
         """
@@ -277,11 +288,152 @@ class YBuzzer(YFunction):
         """
         return self.sendCommand("C" + str(int(volume)) + "," + str(int(msDuration)))
 
+    def addNotesToPlaySeq(self, notes):
+        """
+        Adds notes to the playing sequence. Notes are provided as text words, separated by
+        spaces. The pitch is specified using the usual letter from A to G. The duration is
+        specified as the divisor of a whole note: 4 for a fourth, 8 for an eight note, etc.
+        Some modifiers are supported: # and b to alter a note pitch,
+        ' and , to move to the upper/lower octave, . to enlarge
+        the note duration.
+
+        @param notes : notes to be played, as a text string.
+
+        @return YAPI.SUCCESS if the call succeeds.
+                On failure, throws an exception or returns a negative error code.
+        """
+        # tempo
+        # prevPitch
+        # prevDuration
+        # prevFreq
+        # note
+        # num
+        # typ
+        # ascNotes
+        # notesLen
+        # i
+        # ch
+        # dNote
+        # pitch
+        # freq
+        # ms
+        # ms16
+        # rest
+        tempo = 100
+        prevPitch = 3
+        prevDuration = 4
+        prevFreq = 110
+        note = -99
+        num = 0
+        typ = 3
+        ascNotes = YString2Byte(notes)
+        notesLen = len(ascNotes)
+        i = 0
+        while i < notesLen:
+            ch = YGetByte(ascNotes, i)
+            # // A (note))
+            if ch == 65:
+                note = 0
+            # // B (note)
+            if ch == 66:
+                note = 2
+            # // C (note)
+            if ch == 67:
+                note = 3
+            # // D (note)
+            if ch == 68:
+                note = 5
+            # // E (note)
+            if ch == 69:
+                note = 7
+            # // F (note)
+            if ch == 70:
+                note = 8
+            # // G (note)
+            if ch == 71:
+                note = 10
+            # // '#' (sharp modifier)
+            if ch == 35:
+                note = note + 1
+            # // 'b' (flat modifier)
+            if ch == 98:
+                note = note - 1
+            # // ' (octave up)
+            if ch == 39:
+                prevPitch = prevPitch + 12
+            # // , (octave down)
+            if ch == 44:
+                prevPitch = prevPitch - 12
+            # // R (rest)
+            if ch == 82:
+                typ = 0
+            # // ! (staccato modifier)
+            if ch == 33:
+                typ = 1
+            # // ^ (short modifier)
+            if ch == 94:
+                typ = 2
+            # // _ (legato modifier)
+            if ch == 95:
+                typ = 4
+            # // - (glissando modifier)
+            if ch == 45:
+                typ = 5
+            # // % (tempo change)
+            if (ch == 37) and (num > 0):
+                tempo = num
+                num = 0
+            if (ch >= 48) and (ch <= 57):
+                # // 0-9 (number)
+                num = (num * 10) + (ch - 48)
+            if ch == 46:
+                # // . (duration modifier)
+                num = int((num * 2) / (3))
+            if ((ch == 32) or (i+1 == notesLen)) and ((note > -99) or (typ != 3)):
+                if num == 0:
+                    num = prevDuration
+                else:
+                    prevDuration = num
+                ms = round(320000.0 / (tempo * num))
+                if typ == 0:
+                    self.addPulseToPlaySeq(0, ms)
+                else:
+                    dNote = note - (((prevPitch) % (12)))
+                    if dNote > 6:
+                        dNote = dNote - 12
+                    if dNote <= -6:
+                        dNote = dNote + 12
+                    pitch = prevPitch + dNote
+                    freq = round(440 * math.exp(pitch * 0.05776226504666))
+                    ms16 = ((ms) >> (4))
+                    rest = 0
+                    if typ == 3:
+                        rest = 2 * ms16
+                    if typ == 2:
+                        rest = 8 * ms16
+                    if typ == 1:
+                        rest = 12 * ms16
+                    if typ == 5:
+                        self.addPulseToPlaySeq(prevFreq, ms16)
+                        self.addFreqMoveToPlaySeq(freq, 8 * ms16)
+                        self.addPulseToPlaySeq(freq, ms - 9 * ms16)
+                    else:
+                        self.addPulseToPlaySeq(freq, ms - rest)
+                        if rest > 0:
+                            self.addPulseToPlaySeq(0, rest)
+                    prevFreq = freq
+                    prevPitch = pitch
+                note = -99
+                num = 0
+                typ = 3
+            i = i + 1
+        return YAPI.SUCCESS
+
     def startPlaySeq(self):
         """
         Starts the preprogrammed playing sequence. The sequence
         runs in loop until it is stopped by stopPlaySeq or an explicit
-        change.
+        change. To play the sequence only once, use oncePlaySeq().
 
         @return YAPI.SUCCESS if the call succeeds.
                 On failure, throws an exception or returns a negative error code.
@@ -305,6 +457,15 @@ class YBuzzer(YFunction):
                 On failure, throws an exception or returns a negative error code.
         """
         return self.sendCommand("Z")
+
+    def oncePlaySeq(self):
+        """
+        Starts the preprogrammed playing sequence and run it once only.
+
+        @return YAPI.SUCCESS if the call succeeds.
+                On failure, throws an exception or returns a negative error code.
+        """
+        return self.sendCommand("s")
 
     def pulse(self, frequency, duration):
         """
@@ -345,6 +506,24 @@ class YBuzzer(YFunction):
         """
         return self.set_command("V" + str(int(volume)) + "," + str(int(duration)))
 
+    def playNotes(self, notes):
+        """
+        Immediately play a note sequence. Notes are provided as text words, separated by
+        spaces. The pitch is specified using the usual letter from A to G. The duration is
+        specified as the divisor of a whole note: 4 for a fourth, 8 for an eight note, etc.
+        Some modifiers are supported: # and b to alter a note pitch,
+        ' and , to move to the upper/lower octave, . to enlarge
+        the note duration.
+
+        @param notes : notes to be played, as a text string.
+
+        @return YAPI.SUCCESS if the call succeeds.
+                On failure, throws an exception or returns a negative error code.
+        """
+        self.resetPlaySeq()
+        self.addNotesToPlaySeq(notes)
+        return self.oncePlaySeq()
+
     def nextBuzzer(self):
         """
         Continues the enumeration of buzzers started using yFirstBuzzer().
@@ -362,7 +541,7 @@ class YBuzzer(YFunction):
 
 #--- (end of YBuzzer implementation)
 
-#--- (Buzzer functions)
+#--- (YBuzzer functions)
 
     @staticmethod
     def FirstBuzzer():
@@ -396,4 +575,4 @@ class YBuzzer(YFunction):
 
         return YBuzzer.FindBuzzer(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of Buzzer functions)
+#--- (end of YBuzzer functions)

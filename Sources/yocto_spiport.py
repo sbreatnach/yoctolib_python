@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_spiport.py 24086 2016-04-21 15:43:42Z seb $
+#* $Id: yocto_spiport.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindSpiPort(), the high-level API for SpiPort functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -46,10 +47,10 @@ from yocto_api import *
 #noinspection PyProtectedMember
 class YSpiPort(YFunction):
     """
-    The SerialPort function interface allows you to fully drive a Yoctopuce
-    serial port, to send and receive data, and to configure communication
+    The SpiPort function interface allows you to fully drive a Yoctopuce
+    SPI port, to send and receive data, and to configure communication
     parameters (baud rate, bit count, parity, flow control and protocol).
-    Note that Yoctopuce serial ports are not exposed as virtual COM ports.
+    Note that Yoctopuce SPI ports are not exposed as virtual COM ports.
     They are meant to be used in the same way as all Yoctopuce devices.
 
     """
@@ -106,53 +107,41 @@ class YSpiPort(YFunction):
         self._ssPolarity = YSpiPort.SSPOLARITY_INVALID
         self._shitftSampling = YSpiPort.SHITFTSAMPLING_INVALID
         self._rxptr = 0
+        self._rxbuff = ''
+        self._rxbuffptr = 0
         #--- (end of YSpiPort attributes)
 
     #--- (YSpiPort implementation)
-    def _parseAttr(self, member):
-        if member.name == "rxCount":
-            self._rxCount = member.ivalue
-            return 1
-        if member.name == "txCount":
-            self._txCount = member.ivalue
-            return 1
-        if member.name == "errCount":
-            self._errCount = member.ivalue
-            return 1
-        if member.name == "rxMsgCount":
-            self._rxMsgCount = member.ivalue
-            return 1
-        if member.name == "txMsgCount":
-            self._txMsgCount = member.ivalue
-            return 1
-        if member.name == "lastMsg":
-            self._lastMsg = member.svalue
-            return 1
-        if member.name == "currentJob":
-            self._currentJob = member.svalue
-            return 1
-        if member.name == "startupJob":
-            self._startupJob = member.svalue
-            return 1
-        if member.name == "command":
-            self._command = member.svalue
-            return 1
-        if member.name == "voltageLevel":
-            self._voltageLevel = member.ivalue
-            return 1
-        if member.name == "protocol":
-            self._protocol = member.svalue
-            return 1
-        if member.name == "spiMode":
-            self._spiMode = member.svalue
-            return 1
-        if member.name == "ssPolarity":
-            self._ssPolarity = member.ivalue
-            return 1
-        if member.name == "shitftSampling":
-            self._shitftSampling = member.ivalue
-            return 1
-        super(YSpiPort, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("rxCount"):
+            self._rxCount = json_val.getInt("rxCount")
+        if json_val.has("txCount"):
+            self._txCount = json_val.getInt("txCount")
+        if json_val.has("errCount"):
+            self._errCount = json_val.getInt("errCount")
+        if json_val.has("rxMsgCount"):
+            self._rxMsgCount = json_val.getInt("rxMsgCount")
+        if json_val.has("txMsgCount"):
+            self._txMsgCount = json_val.getInt("txMsgCount")
+        if json_val.has("lastMsg"):
+            self._lastMsg = json_val.getString("lastMsg")
+        if json_val.has("currentJob"):
+            self._currentJob = json_val.getString("currentJob")
+        if json_val.has("startupJob"):
+            self._startupJob = json_val.getString("startupJob")
+        if json_val.has("command"):
+            self._command = json_val.getString("command")
+        if json_val.has("voltageLevel"):
+            self._voltageLevel = json_val.getInt("voltageLevel")
+        if json_val.has("protocol"):
+            self._protocol = json_val.getString("protocol")
+        if json_val.has("spiMode"):
+            self._spiMode = json_val.getString("spiMode")
+        if json_val.has("ssPolarity"):
+            self._ssPolarity = (json_val.getInt("ssPolarity") > 0 if 1 else 0)
+        if json_val.has("shitftSampling"):
+            self._shitftSampling = (json_val.getInt("shitftSampling") > 0 if 1 else 0)
+        super(YSpiPort, self)._parseAttr(json_val)
 
     def get_rxCount(self):
         """
@@ -162,10 +151,12 @@ class YSpiPort(YFunction):
 
         On failure, throws an exception or returns YSpiPort.RXCOUNT_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSpiPort.RXCOUNT_INVALID
-        return self._rxCount
+        res = self._rxCount
+        return res
 
     def get_txCount(self):
         """
@@ -175,10 +166,12 @@ class YSpiPort(YFunction):
 
         On failure, throws an exception or returns YSpiPort.TXCOUNT_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSpiPort.TXCOUNT_INVALID
-        return self._txCount
+        res = self._txCount
+        return res
 
     def get_errCount(self):
         """
@@ -188,10 +181,12 @@ class YSpiPort(YFunction):
 
         On failure, throws an exception or returns YSpiPort.ERRCOUNT_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSpiPort.ERRCOUNT_INVALID
-        return self._errCount
+        res = self._errCount
+        return res
 
     def get_rxMsgCount(self):
         """
@@ -201,10 +196,12 @@ class YSpiPort(YFunction):
 
         On failure, throws an exception or returns YSpiPort.RXMSGCOUNT_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSpiPort.RXMSGCOUNT_INVALID
-        return self._rxMsgCount
+        res = self._rxMsgCount
+        return res
 
     def get_txMsgCount(self):
         """
@@ -214,10 +211,12 @@ class YSpiPort(YFunction):
 
         On failure, throws an exception or returns YSpiPort.TXMSGCOUNT_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSpiPort.TXMSGCOUNT_INVALID
-        return self._txMsgCount
+        res = self._txMsgCount
+        return res
 
     def get_lastMsg(self):
         """
@@ -227,10 +226,12 @@ class YSpiPort(YFunction):
 
         On failure, throws an exception or returns YSpiPort.LASTMSG_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSpiPort.LASTMSG_INVALID
-        return self._lastMsg
+        res = self._lastMsg
+        return res
 
     def get_currentJob(self):
         """
@@ -240,10 +241,12 @@ class YSpiPort(YFunction):
 
         On failure, throws an exception or returns YSpiPort.CURRENTJOB_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSpiPort.CURRENTJOB_INVALID
-        return self._currentJob
+        res = self._currentJob
+        return res
 
     def set_currentJob(self, newval):
         """
@@ -268,10 +271,12 @@ class YSpiPort(YFunction):
 
         On failure, throws an exception or returns YSpiPort.STARTUPJOB_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSpiPort.STARTUPJOB_INVALID
-        return self._startupJob
+        res = self._startupJob
+        return res
 
     def set_startupJob(self, newval):
         """
@@ -289,10 +294,12 @@ class YSpiPort(YFunction):
         return self._setAttr("startupJob", rest_val)
 
     def get_command(self):
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSpiPort.COMMAND_INVALID
-        return self._command
+        res = self._command
+        return res
 
     def set_command(self, newval):
         rest_val = newval
@@ -309,10 +316,12 @@ class YSpiPort(YFunction):
 
         On failure, throws an exception or returns YSpiPort.VOLTAGELEVEL_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSpiPort.VOLTAGELEVEL_INVALID
-        return self._voltageLevel
+        res = self._voltageLevel
+        return res
 
     def set_voltageLevel(self, newval):
         """
@@ -346,10 +355,12 @@ class YSpiPort(YFunction):
 
         On failure, throws an exception or returns YSpiPort.PROTOCOL_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSpiPort.PROTOCOL_INVALID
-        return self._protocol
+        res = self._protocol
+        return res
 
     def set_protocol(self, newval):
         """
@@ -372,27 +383,29 @@ class YSpiPort(YFunction):
 
     def get_spiMode(self):
         """
-        Returns the serial port communication parameters, as a string such as
+        Returns the SPI port communication parameters, as a string such as
         "125000,0,msb". The string includes the baud rate, the SPI mode (between
         0 and 3) and the bit order.
 
-        @return a string corresponding to the serial port communication parameters, as a string such as
+        @return a string corresponding to the SPI port communication parameters, as a string such as
                 "125000,0,msb"
 
         On failure, throws an exception or returns YSpiPort.SPIMODE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSpiPort.SPIMODE_INVALID
-        return self._spiMode
+        res = self._spiMode
+        return res
 
     def set_spiMode(self, newval):
         """
-        Changes the serial port communication parameters, with a string such as
+        Changes the SPI port communication parameters, with a string such as
         "125000,0,msb". The string includes the baud rate, the SPI mode (between
         0 and 3) and the bit order.
 
-        @param newval : a string corresponding to the serial port communication parameters, with a string such as
+        @param newval : a string corresponding to the SPI port communication parameters, with a string such as
                 "125000,0,msb"
 
         @return YAPI.SUCCESS if the call succeeds.
@@ -411,10 +424,12 @@ class YSpiPort(YFunction):
 
         On failure, throws an exception or returns YSpiPort.SSPOLARITY_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSpiPort.SSPOLARITY_INVALID
-        return self._ssPolarity
+        res = self._ssPolarity
+        return res
 
     def set_ssPolarity(self, newval):
         """
@@ -432,17 +447,19 @@ class YSpiPort(YFunction):
 
     def get_shitftSampling(self):
         """
-        Returns true when SDI line phase is shifted with regards to SDO line.
+        Returns true when the SDI line phase is shifted with regards to the SDO line.
 
         @return either YSpiPort.SHITFTSAMPLING_OFF or YSpiPort.SHITFTSAMPLING_ON, according to true when
-        SDI line phase is shifted with regards to SDO line
+        the SDI line phase is shifted with regards to the SDO line
 
         On failure, throws an exception or returns YSpiPort.SHITFTSAMPLING_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSpiPort.SHITFTSAMPLING_INVALID
-        return self._shitftSampling
+        res = self._shitftSampling
+        return res
 
     def set_shitftSampling(self, newval):
         """
@@ -481,6 +498,10 @@ class YSpiPort(YFunction):
         found is returned. The search is performed first by hardware name,
         then by logical name.
 
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
+
         @param func : a string that uniquely characterizes the SPI port
 
         @return a YSpiPort object allowing you to drive the SPI port.
@@ -493,7 +514,6 @@ class YSpiPort(YFunction):
         return obj
 
     def sendCommand(self, text):
-        # // may throw an exception
         return self.set_command(text)
 
     def reset(self):
@@ -505,7 +525,9 @@ class YSpiPort(YFunction):
         On failure, throws an exception or returns a negative error code.
         """
         self._rxptr = 0
-        # // may throw an exception
+        self._rxbuffptr = 0
+        self._rxbuff = bytearray(0)
+
         return self.sendCommand("Z")
 
     def writeByte(self, code):
@@ -518,7 +540,6 @@ class YSpiPort(YFunction):
 
         On failure, throws an exception or returns a negative error code.
         """
-        # // may throw an exception
         return self.sendCommand("$" + ("%02X" % code))
 
     def writeStr(self, text):
@@ -538,7 +559,7 @@ class YSpiPort(YFunction):
         buff = YString2Byte(text)
         bufflen = len(buff)
         if bufflen < 100:
-            #
+            # // if string is pure text, we can send it as a simple command (faster)
             ch = 0x20
             idx = 0
             while (idx < bufflen) and (ch != 0):
@@ -548,7 +569,6 @@ class YSpiPort(YFunction):
                 else:
                     ch = 0
             if idx >= bufflen:
-                #
                 return self.sendCommand("+" + text)
         # // send string using file upload
         return self._upload("txdata", buff)
@@ -563,7 +583,6 @@ class YSpiPort(YFunction):
 
         On failure, throws an exception or returns a negative error code.
         """
-        # // may throw an exception
         return self._upload("txdata", buff)
 
     def writeArray(self, byteList):
@@ -588,7 +607,7 @@ class YSpiPort(YFunction):
             hexb = byteList[idx]
             buff[idx] = hexb
             idx = idx + 1
-        # // may throw an exception
+
         res = self._upload("txdata", buff)
         return res
 
@@ -609,7 +628,6 @@ class YSpiPort(YFunction):
         # res
         bufflen = len(hexString)
         if bufflen < 100:
-            #
             return self.sendCommand("$" + hexString)
         bufflen = ((bufflen) >> (1))
         buff = bytearray(bufflen)
@@ -618,7 +636,7 @@ class YSpiPort(YFunction):
             hexb = int((hexString)[2 * idx: 2 * idx + 2], 16)
             buff[idx] = hexb
             idx = idx + 1
-        # // may throw an exception
+
         res = self._upload("txdata", buff)
         return res
 
@@ -639,7 +657,7 @@ class YSpiPort(YFunction):
         buff = YString2Byte("" + text + "\r\n")
         bufflen = len(buff)-2
         if bufflen < 100:
-            #
+            # // if string is pure text, we can send it as a simple command (faster)
             ch = 0x20
             idx = 0
             while (idx < bufflen) and (ch != 0):
@@ -649,7 +667,6 @@ class YSpiPort(YFunction):
                 else:
                     ch = 0
             if idx >= bufflen:
-                #
                 return self.sendCommand("!" + text)
         # // send string using file upload
         return self._upload("txdata", buff)
@@ -664,12 +681,44 @@ class YSpiPort(YFunction):
 
         On failure, throws an exception or returns a negative error code.
         """
+        # currpos
+        # reqlen
         # buff
         # bufflen
         # mult
         # endpos
         # res
-        # // may throw an exception
+        # // first check if we have the requested character in the look-ahead buffer
+        bufflen = len(self._rxbuff)
+        if (self._rxptr >= self._rxbuffptr) and (self._rxptr < self._rxbuffptr+bufflen):
+            res = YGetByte(self._rxbuff, self._rxptr-self._rxbuffptr)
+            self._rxptr = self._rxptr + 1
+            return res
+        # // try to preload more than one byte to speed-up byte-per-byte access
+        currpos = self._rxptr
+        reqlen = 1024
+        buff = self.readBin(reqlen)
+        bufflen = len(buff)
+        if self._rxptr == currpos+bufflen:
+            res = YGetByte(buff, 0)
+            self._rxptr = currpos+1
+            self._rxbuffptr = currpos
+            self._rxbuff = buff
+            return res
+        # // mixed bidirectional data, retry with a smaller block
+        self._rxptr = currpos
+        reqlen = 16
+        buff = self.readBin(reqlen)
+        bufflen = len(buff)
+        if self._rxptr == currpos+bufflen:
+            res = YGetByte(buff, 0)
+            self._rxptr = currpos+1
+            self._rxbuffptr = currpos
+            self._rxbuff = buff
+            return res
+        # // still mixed, need to process character by character
+        self._rxptr = currpos
+
         buff = self._download("rxdata.bin?pos=" + str(int(self._rxptr)) + "&len=1")
         bufflen = len(buff) - 1
         endpos = 0
@@ -703,7 +752,7 @@ class YSpiPort(YFunction):
         # res
         if nChars > 65535:
             nChars = 65535
-        # // may throw an exception
+
         buff = self._download("rxdata.bin?pos=" + str(int(self._rxptr)) + "&len=" + str(int(nChars)))
         bufflen = len(buff) - 1
         endpos = 0
@@ -736,7 +785,7 @@ class YSpiPort(YFunction):
         # res
         if nChars > 65535:
             nChars = 65535
-        # // may throw an exception
+
         buff = self._download("rxdata.bin?pos=" + str(int(self._rxptr)) + "&len=" + str(int(nChars)))
         bufflen = len(buff) - 1
         endpos = 0
@@ -774,7 +823,7 @@ class YSpiPort(YFunction):
         res = []
         if nChars > 65535:
             nChars = 65535
-        # // may throw an exception
+
         buff = self._download("rxdata.bin?pos=" + str(int(self._rxptr)) + "&len=" + str(int(nChars)))
         bufflen = len(buff) - 1
         endpos = 0
@@ -790,7 +839,7 @@ class YSpiPort(YFunction):
             b = YGetByte(buff, idx)
             res.append(b)
             idx = idx + 1
-        
+
         return res
 
     def readHex(self, nBytes):
@@ -813,7 +862,7 @@ class YSpiPort(YFunction):
         # res
         if nBytes > 65535:
             nBytes = 65535
-        # // may throw an exception
+
         buff = self._download("rxdata.bin?pos=" + str(int(self._rxptr)) + "&len=" + str(int(nBytes)))
         bufflen = len(buff) - 1
         endpos = 0
@@ -852,7 +901,7 @@ class YSpiPort(YFunction):
         msgarr = []
         # msglen
         # res
-        # // may throw an exception
+
         url = "rxmsg.json?pos=" + str(int(self._rxptr)) + "&len=1&maxw=1"
         msgbin = self._download(url)
         msgarr = self._json_get_array(msgbin)
@@ -895,7 +944,7 @@ class YSpiPort(YFunction):
         # msglen
         res = []
         # idx
-        # // may throw an exception
+
         url = "rxmsg.json?pos=" + str(int(self._rxptr)) + "&maxw=" + str(int(maxWait)) + "&pat=" + pattern
         msgbin = self._download(url)
         msgarr = self._json_get_array(msgbin)
@@ -906,11 +955,11 @@ class YSpiPort(YFunction):
         msglen = msglen - 1
         self._rxptr = YAPI._atoi(msgarr[msglen])
         idx = 0
-        
+
         while idx < msglen:
             res.append(self._json_get_string(YString2Byte(msgarr[idx])))
             idx = idx + 1
-        
+
         return res
 
     def read_seek(self, absPos):
@@ -944,7 +993,7 @@ class YSpiPort(YFunction):
         # buff
         # bufflen
         # res
-        # // may throw an exception
+
         buff = self._download("rxcnt.bin?pos=" + str(int(self._rxptr)))
         bufflen = len(buff) - 1
         while (bufflen > 0) and (YGetByte(buff, bufflen) != 64):
@@ -970,7 +1019,7 @@ class YSpiPort(YFunction):
         msgarr = []
         # msglen
         # res
-        # // may throw an exception
+
         url = "rxmsg.json?len=1&maxw=" + str(int(maxWait)) + "&cmd=!" + query
         msgbin = self._download(url)
         msgarr = self._json_get_array(msgbin)
@@ -1012,7 +1061,6 @@ class YSpiPort(YFunction):
 
         On failure, throws an exception or returns a negative error code.
         """
-        # // may throw an exception
         return self.set_currentJob(jobfile)
 
     def set_SS(self, val):
@@ -1026,7 +1074,6 @@ class YSpiPort(YFunction):
 
         On failure, throws an exception or returns a negative error code.
         """
-        # // may throw an exception
         return self.sendCommand("S" + str(int(val)))
 
     def nextSpiPort(self):
@@ -1046,7 +1093,7 @@ class YSpiPort(YFunction):
 
 #--- (end of YSpiPort implementation)
 
-#--- (SpiPort functions)
+#--- (YSpiPort functions)
 
     @staticmethod
     def FirstSpiPort():
@@ -1080,4 +1127,4 @@ class YSpiPort(YFunction):
 
         return YSpiPort.FindSpiPort(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of SpiPort functions)
+#--- (end of YSpiPort functions)

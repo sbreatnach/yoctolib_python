@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_longitude.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_longitude.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindLongitude(), the high-level API for Longitude functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -68,8 +69,8 @@ class YLongitude(YSensor):
         #--- (end of YLongitude attributes)
 
     #--- (YLongitude implementation)
-    def _parseAttr(self, member):
-        super(YLongitude, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        super(YLongitude, self)._parseAttr(json_val)
 
     @staticmethod
     def FindLongitude(func):
@@ -91,6 +92,10 @@ class YLongitude(YSensor):
         a longitude sensor by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string that uniquely characterizes the longitude sensor
 
@@ -120,7 +125,7 @@ class YLongitude(YSensor):
 
 #--- (end of YLongitude implementation)
 
-#--- (Longitude functions)
+#--- (YLongitude functions)
 
     @staticmethod
     def FirstLongitude():
@@ -154,4 +159,4 @@ class YLongitude(YSensor):
 
         return YLongitude.FindLongitude(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of Longitude functions)
+#--- (end of YLongitude functions)

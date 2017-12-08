@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_colorled.py 23578 2016-03-22 23:00:41Z mvuilleu $
+#* $Id: yocto_colorled.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindColorLed(), the high-level API for ColorLed functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -88,53 +89,40 @@ class YColorLed(YFunction):
         #--- (end of YColorLed attributes)
 
     #--- (YColorLed implementation)
-    def _parseAttr(self, member):
-        if member.name == "rgbColor":
-            self._rgbColor = member.ivalue
-            return 1
-        if member.name == "hslColor":
-            self._hslColor = member.ivalue
-            return 1
-        if member.name == "rgbMove":
-            if member.recordtype != YAPI.TJSONRECORDTYPE.JSON_STRUCT:
-                self._rgbMove = -1
+    def _parseAttr(self, json_val):
+        if json_val.has("rgbColor"):
+            self._rgbColor = json_val.getInt("rgbColor")
+        if json_val.has("hslColor"):
+            self._hslColor = json_val.getInt("hslColor")
+        if json_val.has("rgbMove"):
+            subjson = json_val.getYJSONObject("rgbMove");
             self._rgbMove = {"moving": None, "target": None, "ms": None}
-            for submemb in member.members:
-                if submemb.name == "moving":
-                    self._rgbMove["moving"] = submemb.ivalue
-                elif submemb.name == "target":
-                    self._rgbMove["target"] = submemb.ivalue
-                elif submemb.name == "ms":
-                    self._rgbMove["ms"] = submemb.ivalue
-            return 1
-        if member.name == "hslMove":
-            if member.recordtype != YAPI.TJSONRECORDTYPE.JSON_STRUCT:
-                self._hslMove = -1
+            if subjson.has("moving"):
+                self._rgbMove["moving"] = subjson.getInt("moving")
+            if subjson.has("target"):
+                self._rgbMove["target"] = subjson.getInt("target")
+            if subjson.has("ms"):
+                self._rgbMove["ms"] = subjson.getInt("ms")
+        if json_val.has("hslMove"):
+            subjson = json_val.getYJSONObject("hslMove");
             self._hslMove = {"moving": None, "target": None, "ms": None}
-            for submemb in member.members:
-                if submemb.name == "moving":
-                    self._hslMove["moving"] = submemb.ivalue
-                elif submemb.name == "target":
-                    self._hslMove["target"] = submemb.ivalue
-                elif submemb.name == "ms":
-                    self._hslMove["ms"] = submemb.ivalue
-            return 1
-        if member.name == "rgbColorAtPowerOn":
-            self._rgbColorAtPowerOn = member.ivalue
-            return 1
-        if member.name == "blinkSeqSize":
-            self._blinkSeqSize = member.ivalue
-            return 1
-        if member.name == "blinkSeqMaxSize":
-            self._blinkSeqMaxSize = member.ivalue
-            return 1
-        if member.name == "blinkSeqSignature":
-            self._blinkSeqSignature = member.ivalue
-            return 1
-        if member.name == "command":
-            self._command = member.svalue
-            return 1
-        super(YColorLed, self)._parseAttr(member)
+            if subjson.has("moving"):
+                self._hslMove["moving"] = subjson.getInt("moving")
+            if subjson.has("target"):
+                self._hslMove["target"] = subjson.getInt("target")
+            if subjson.has("ms"):
+                self._hslMove["ms"] = subjson.getInt("ms")
+        if json_val.has("rgbColorAtPowerOn"):
+            self._rgbColorAtPowerOn = json_val.getInt("rgbColorAtPowerOn")
+        if json_val.has("blinkSeqSize"):
+            self._blinkSeqSize = json_val.getInt("blinkSeqSize")
+        if json_val.has("blinkSeqMaxSize"):
+            self._blinkSeqMaxSize = json_val.getInt("blinkSeqMaxSize")
+        if json_val.has("blinkSeqSignature"):
+            self._blinkSeqSignature = json_val.getInt("blinkSeqSignature")
+        if json_val.has("command"):
+            self._command = json_val.getString("command")
+        super(YColorLed, self)._parseAttr(json_val)
 
     def get_rgbColor(self):
         """
@@ -144,16 +132,18 @@ class YColorLed(YFunction):
 
         On failure, throws an exception or returns YColorLed.RGBCOLOR_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YColorLed.RGBCOLOR_INVALID
-        return self._rgbColor
+        res = self._rgbColor
+        return res
 
     def set_rgbColor(self, newval):
         """
-        Changes the current color of the LED, using a RGB color. Encoding is done as follows: 0xRRGGBB.
+        Changes the current color of the LED, using an RGB color. Encoding is done as follows: 0xRRGGBB.
 
-        @param newval : an integer corresponding to the current color of the LED, using a RGB color
+        @param newval : an integer corresponding to the current color of the LED, using an RGB color
 
         @return YAPI.SUCCESS if the call succeeds.
 
@@ -170,10 +160,12 @@ class YColorLed(YFunction):
 
         On failure, throws an exception or returns YColorLed.HSLCOLOR_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YColorLed.HSLCOLOR_INVALID
-        return self._hslColor
+        res = self._hslColor
+        return res
 
     def set_hslColor(self, newval):
         """
@@ -189,10 +181,12 @@ class YColorLed(YFunction):
         return self._setAttr("hslColor", rest_val)
 
     def get_rgbMove(self):
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YColorLed.RGBMOVE_INVALID
-        return self._rgbMove
+        res = self._rgbMove
+        return res
 
     def set_rgbMove(self, newval):
         rest_val = str(newval.target) + ":" + str(newval.ms)
@@ -213,10 +207,12 @@ class YColorLed(YFunction):
         return self._setAttr("rgbMove", rest_val)
 
     def get_hslMove(self):
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YColorLed.HSLMOVE_INVALID
-        return self._hslMove
+        res = self._hslMove
+        return res
 
     def set_hslMove(self, newval):
         rest_val = str(newval.target) + ":" + str(newval.ms)
@@ -244,10 +240,12 @@ class YColorLed(YFunction):
 
         On failure, throws an exception or returns YColorLed.RGBCOLORATPOWERON_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YColorLed.RGBCOLORATPOWERON_INVALID
-        return self._rgbColorAtPowerOn
+        res = self._rgbColorAtPowerOn
+        return res
 
     def set_rgbColorAtPowerOn(self, newval):
         """
@@ -271,10 +269,12 @@ class YColorLed(YFunction):
 
         On failure, throws an exception or returns YColorLed.BLINKSEQSIZE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YColorLed.BLINKSEQSIZE_INVALID
-        return self._blinkSeqSize
+        res = self._blinkSeqSize
+        return res
 
     def get_blinkSeqMaxSize(self):
         """
@@ -284,10 +284,12 @@ class YColorLed(YFunction):
 
         On failure, throws an exception or returns YColorLed.BLINKSEQMAXSIZE_INVALID.
         """
-        if self._cacheExpiration == datetime.datetime.fromtimestamp(0):
+        # res
+        if self._cacheExpiration == datetime.datetime.fromtimestamp(86400):
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YColorLed.BLINKSEQMAXSIZE_INVALID
-        return self._blinkSeqMaxSize
+        res = self._blinkSeqMaxSize
+        return res
 
     def get_blinkSeqSignature(self):
         """
@@ -300,16 +302,20 @@ class YColorLed(YFunction):
 
         On failure, throws an exception or returns YColorLed.BLINKSEQSIGNATURE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YColorLed.BLINKSEQSIGNATURE_INVALID
-        return self._blinkSeqSignature
+        res = self._blinkSeqSignature
+        return res
 
     def get_command(self):
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YColorLed.COMMAND_INVALID
-        return self._command
+        res = self._command
+        return res
 
     def set_command(self, newval):
         rest_val = newval
@@ -336,6 +342,10 @@ class YColorLed(YFunction):
         found is returned. The search is performed first by hardware name,
         then by logical name.
 
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
+
         @param func : a string that uniquely characterizes the RGB LED
 
         @return a YColorLed object allowing you to drive the RGB LED.
@@ -348,7 +358,6 @@ class YColorLed(YFunction):
         return obj
 
     def sendCommand(self, command):
-        # //may throw an exception
         return self.set_command(command)
 
     def addHslMoveToBlinkSeq(self, HSLcolor, msDelay):
@@ -366,8 +375,8 @@ class YColorLed(YFunction):
 
     def addRgbMoveToBlinkSeq(self, RGBcolor, msDelay):
         """
-        Add a new transition to the blinking sequence, the move will
-        be performed in the RGB space.
+        Adds a new transition to the blinking sequence, the move is
+        performed in the RGB space.
 
         @param RGBcolor : desired RGB color when the transition is completed
         @param msDelay : duration of the color transition, in milliseconds.
@@ -379,8 +388,8 @@ class YColorLed(YFunction):
 
     def startBlinkSeq(self):
         """
-        Starts the preprogrammed blinking sequence. The sequence will
-        run in loop until it is stopped by stopBlinkSeq or an explicit
+        Starts the preprogrammed blinking sequence. The sequence is
+        run in a loop until it is stopped by stopBlinkSeq or an explicit
         change.
 
         @return YAPI.SUCCESS if the call succeeds.
@@ -423,7 +432,7 @@ class YColorLed(YFunction):
 
 #--- (end of YColorLed implementation)
 
-#--- (ColorLed functions)
+#--- (YColorLed functions)
 
     @staticmethod
     def FirstColorLed():
@@ -457,4 +466,4 @@ class YColorLed(YFunction):
 
         return YColorLed.FindColorLed(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of ColorLed functions)
+#--- (end of YColorLed functions)

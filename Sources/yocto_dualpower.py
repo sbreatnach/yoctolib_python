@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_dualpower.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_dualpower.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindDualPower(), the high-level API for DualPower functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -82,17 +83,14 @@ class YDualPower(YFunction):
         #--- (end of YDualPower attributes)
 
     #--- (YDualPower implementation)
-    def _parseAttr(self, member):
-        if member.name == "powerState":
-            self._powerState = member.ivalue
-            return 1
-        if member.name == "powerControl":
-            self._powerControl = member.ivalue
-            return 1
-        if member.name == "extVoltage":
-            self._extVoltage = member.ivalue
-            return 1
-        super(YDualPower, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("powerState"):
+            self._powerState = json_val.getInt("powerState")
+        if json_val.has("powerControl"):
+            self._powerControl = json_val.getInt("powerControl")
+        if json_val.has("extVoltage"):
+            self._extVoltage = json_val.getInt("extVoltage")
+        super(YDualPower, self)._parseAttr(json_val)
 
     def get_powerState(self):
         """
@@ -104,10 +102,12 @@ class YDualPower(YFunction):
 
         On failure, throws an exception or returns YDualPower.POWERSTATE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YDualPower.POWERSTATE_INVALID
-        return self._powerState
+        res = self._powerState
+        return res
 
     def get_powerControl(self):
         """
@@ -119,10 +119,12 @@ class YDualPower(YFunction):
 
         On failure, throws an exception or returns YDualPower.POWERCONTROL_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YDualPower.POWERCONTROL_INVALID
-        return self._powerControl
+        res = self._powerControl
+        return res
 
     def set_powerControl(self, newval):
         """
@@ -147,10 +149,12 @@ class YDualPower(YFunction):
 
         On failure, throws an exception or returns YDualPower.EXTVOLTAGE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YDualPower.EXTVOLTAGE_INVALID
-        return self._extVoltage
+        res = self._extVoltage
+        return res
 
     @staticmethod
     def FindDualPower(func):
@@ -172,6 +176,10 @@ class YDualPower(YFunction):
         a dual power control by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string that uniquely characterizes the power control
 
@@ -201,7 +209,7 @@ class YDualPower(YFunction):
 
 #--- (end of YDualPower implementation)
 
-#--- (DualPower functions)
+#--- (YDualPower functions)
 
     @staticmethod
     def FirstDualPower():
@@ -235,4 +243,4 @@ class YDualPower(YFunction):
 
         return YDualPower.FindDualPower(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of DualPower functions)
+#--- (end of YDualPower functions)

@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_audioout.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_audioout.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindAudioOut(), the high-level API for AudioOut functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -77,23 +78,18 @@ class YAudioOut(YFunction):
         #--- (end of YAudioOut attributes)
 
     #--- (YAudioOut implementation)
-    def _parseAttr(self, member):
-        if member.name == "volume":
-            self._volume = member.ivalue
-            return 1
-        if member.name == "mute":
-            self._mute = member.ivalue
-            return 1
-        if member.name == "volumeRange":
-            self._volumeRange = member.svalue
-            return 1
-        if member.name == "signal":
-            self._signal = member.ivalue
-            return 1
-        if member.name == "noSignalFor":
-            self._noSignalFor = member.ivalue
-            return 1
-        super(YAudioOut, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("volume"):
+            self._volume = json_val.getInt("volume")
+        if json_val.has("mute"):
+            self._mute = (json_val.getInt("mute") > 0 if 1 else 0)
+        if json_val.has("volumeRange"):
+            self._volumeRange = json_val.getString("volumeRange")
+        if json_val.has("signal"):
+            self._signal = json_val.getInt("signal")
+        if json_val.has("noSignalFor"):
+            self._noSignalFor = json_val.getInt("noSignalFor")
+        super(YAudioOut, self)._parseAttr(json_val)
 
     def get_volume(self):
         """
@@ -103,10 +99,12 @@ class YAudioOut(YFunction):
 
         On failure, throws an exception or returns YAudioOut.VOLUME_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YAudioOut.VOLUME_INVALID
-        return self._volume
+        res = self._volume
+        return res
 
     def set_volume(self, newval):
         """
@@ -129,10 +127,12 @@ class YAudioOut(YFunction):
 
         On failure, throws an exception or returns YAudioOut.MUTE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YAudioOut.MUTE_INVALID
-        return self._mute
+        res = self._mute
+        return res
 
     def set_mute(self, newval):
         """
@@ -159,10 +159,12 @@ class YAudioOut(YFunction):
 
         On failure, throws an exception or returns YAudioOut.VOLUMERANGE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YAudioOut.VOLUMERANGE_INVALID
-        return self._volumeRange
+        res = self._volumeRange
+        return res
 
     def get_signal(self):
         """
@@ -172,10 +174,12 @@ class YAudioOut(YFunction):
 
         On failure, throws an exception or returns YAudioOut.SIGNAL_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YAudioOut.SIGNAL_INVALID
-        return self._signal
+        res = self._signal
+        return res
 
     def get_noSignalFor(self):
         """
@@ -185,10 +189,12 @@ class YAudioOut(YFunction):
 
         On failure, throws an exception or returns YAudioOut.NOSIGNALFOR_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YAudioOut.NOSIGNALFOR_INVALID
-        return self._noSignalFor
+        res = self._noSignalFor
+        return res
 
     @staticmethod
     def FindAudioOut(func):
@@ -210,6 +216,10 @@ class YAudioOut(YFunction):
         an audio output by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string that uniquely characterizes the audio output
 
@@ -239,7 +249,7 @@ class YAudioOut(YFunction):
 
 #--- (end of YAudioOut implementation)
 
-#--- (AudioOut functions)
+#--- (YAudioOut functions)
 
     @staticmethod
     def FirstAudioOut():
@@ -273,4 +283,4 @@ class YAudioOut(YFunction):
 
         return YAudioOut.FindAudioOut(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of AudioOut functions)
+#--- (end of YAudioOut functions)

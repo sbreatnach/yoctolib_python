@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_current.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_current.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindCurrent(), the high-level API for Current functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -48,7 +49,7 @@ class YCurrent(YSensor):
     """
     The Yoctopuce class YCurrent allows you to read and configure Yoctopuce current
     sensors. It inherits from YSensor class the core functions to read measurements,
-    register callback functions, access to the autonomous datalogger.
+    to register callback functions, to access the autonomous datalogger.
 
     """
 #--- (end of YCurrent class start)
@@ -57,6 +58,9 @@ class YCurrent(YSensor):
     #--- (YCurrent dlldef)
     #--- (end of YCurrent dlldef)
     #--- (YCurrent definitions)
+    ENABLED_FALSE = 0
+    ENABLED_TRUE = 1
+    ENABLED_INVALID = -1
     #--- (end of YCurrent definitions)
 
     def __init__(self, func):
@@ -64,11 +68,26 @@ class YCurrent(YSensor):
         self._className = 'Current'
         #--- (YCurrent attributes)
         self._callback = None
+        self._enabled = YCurrent.ENABLED_INVALID
         #--- (end of YCurrent attributes)
 
     #--- (YCurrent implementation)
-    def _parseAttr(self, member):
-        super(YCurrent, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("enabled"):
+            self._enabled = (json_val.getInt("enabled") > 0 if 1 else 0)
+        super(YCurrent, self)._parseAttr(json_val)
+
+    def get_enabled(self):
+        # res
+        if self._cacheExpiration <= YAPI.GetTickCount():
+            if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
+                return YCurrent.ENABLED_INVALID
+        res = self._enabled
+        return res
+
+    def set_enabled(self, newval):
+        rest_val = "1" if newval > 0 else "0"
+        return self._setAttr("enabled", rest_val)
 
     @staticmethod
     def FindCurrent(func):
@@ -90,6 +109,10 @@ class YCurrent(YSensor):
         a current sensor by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string that uniquely characterizes the current sensor
 
@@ -119,7 +142,7 @@ class YCurrent(YSensor):
 
 #--- (end of YCurrent implementation)
 
-#--- (Current functions)
+#--- (YCurrent functions)
 
     @staticmethod
     def FirstCurrent():
@@ -153,4 +176,4 @@ class YCurrent(YSensor):
 
         return YCurrent.FindCurrent(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of Current functions)
+#--- (end of YCurrent functions)

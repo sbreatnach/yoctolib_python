@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_currentloopoutput.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_currentloopoutput.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindCurrentLoopOutput(), the high-level API for CurrentLoopOutput functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -77,20 +78,16 @@ class YCurrentLoopOutput(YFunction):
         #--- (end of YCurrentLoopOutput attributes)
 
     #--- (YCurrentLoopOutput implementation)
-    def _parseAttr(self, member):
-        if member.name == "current":
-            self._current = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "currentTransition":
-            self._currentTransition = member.svalue
-            return 1
-        if member.name == "currentAtStartUp":
-            self._currentAtStartUp = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "loopPower":
-            self._loopPower = member.ivalue
-            return 1
-        super(YCurrentLoopOutput, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("current"):
+            self._current = round(json_val.getDouble("current") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("currentTransition"):
+            self._currentTransition = json_val.getString("currentTransition")
+        if json_val.has("currentAtStartUp"):
+            self._currentAtStartUp = round(json_val.getDouble("currentAtStartUp") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("loopPower"):
+            self._loopPower = json_val.getInt("loopPower")
+        super(YCurrentLoopOutput, self)._parseAttr(json_val)
 
     def set_current(self, newval):
         """
@@ -115,16 +112,20 @@ class YCurrentLoopOutput(YFunction):
 
         On failure, throws an exception or returns YCurrentLoopOutput.CURRENT_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YCurrentLoopOutput.CURRENT_INVALID
-        return self._current
+        res = self._current
+        return res
 
     def get_currentTransition(self):
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YCurrentLoopOutput.CURRENTTRANSITION_INVALID
-        return self._currentTransition
+        res = self._currentTransition
+        return res
 
     def set_currentTransition(self, newval):
         rest_val = newval
@@ -152,10 +153,12 @@ class YCurrentLoopOutput(YFunction):
 
         On failure, throws an exception or returns YCurrentLoopOutput.CURRENTATSTARTUP_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YCurrentLoopOutput.CURRENTATSTARTUP_INVALID
-        return self._currentAtStartUp
+        res = self._currentAtStartUp
+        return res
 
     def get_loopPower(self):
         """
@@ -168,10 +171,12 @@ class YCurrentLoopOutput(YFunction):
 
         On failure, throws an exception or returns YCurrentLoopOutput.LOOPPOWER_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YCurrentLoopOutput.LOOPPOWER_INVALID
-        return self._loopPower
+        res = self._loopPower
+        return res
 
     @staticmethod
     def FindCurrentLoopOutput(func):
@@ -194,6 +199,10 @@ class YCurrentLoopOutput(YFunction):
         found is returned. The search is performed first by hardware name,
         then by logical name.
 
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
+
         @param func : a string that uniquely characterizes the 4-20mA output
 
         @return a YCurrentLoopOutput object allowing you to drive the 4-20mA output.
@@ -211,7 +220,7 @@ class YCurrentLoopOutput(YFunction):
         change cancels any ongoing transition process.
 
         @param mA_target   : new current value at the end of the transition
-                (floating-point number, representing the transition duration in mA)
+                (floating-point number, representing the end current in mA)
         @param ms_duration : total duration of the transition, in milliseconds
 
         @return YAPI.SUCCESS when the call succeeds.
@@ -221,8 +230,8 @@ class YCurrentLoopOutput(YFunction):
             mA_target  = 3.0
         if mA_target > 21.0:
             mA_target = 21.0
-        newval = "" + str(int(round(mA_target*1000))) + ":" + str(int(ms_duration))
-        # // may throw an exception
+        newval = "" + str(int(round(mA_target*65536))) + ":" + str(int(ms_duration))
+
         return self.set_currentTransition(newval)
 
     def nextCurrentLoopOutput(self):
@@ -242,7 +251,7 @@ class YCurrentLoopOutput(YFunction):
 
 #--- (end of YCurrentLoopOutput implementation)
 
-#--- (CurrentLoopOutput functions)
+#--- (YCurrentLoopOutput functions)
 
     @staticmethod
     def FirstCurrentLoopOutput():
@@ -276,4 +285,4 @@ class YCurrentLoopOutput(YFunction):
 
         return YCurrentLoopOutput.FindCurrentLoopOutput(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of CurrentLoopOutput functions)
+#--- (end of YCurrentLoopOutput functions)

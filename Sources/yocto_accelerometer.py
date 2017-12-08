@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_accelerometer.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_accelerometer.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindAccelerometer(), the high-level API for Accelerometer functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -63,6 +64,7 @@ class YAccelerometer(YSensor):
     #--- (YAccelerometer dlldef)
     #--- (end of YAccelerometer dlldef)
     #--- (YAccelerometer definitions)
+    BANDWIDTH_INVALID = YAPI.INVALID_INT
     XVALUE_INVALID = YAPI.INVALID_DOUBLE
     YVALUE_INVALID = YAPI.INVALID_DOUBLE
     ZVALUE_INVALID = YAPI.INVALID_DOUBLE
@@ -76,6 +78,7 @@ class YAccelerometer(YSensor):
         self._className = 'Accelerometer'
         #--- (YAccelerometer attributes)
         self._callback = None
+        self._bandwidth = YAccelerometer.BANDWIDTH_INVALID
         self._xValue = YAccelerometer.XVALUE_INVALID
         self._yValue = YAccelerometer.YVALUE_INVALID
         self._zValue = YAccelerometer.ZVALUE_INVALID
@@ -83,20 +86,47 @@ class YAccelerometer(YSensor):
         #--- (end of YAccelerometer attributes)
 
     #--- (YAccelerometer implementation)
-    def _parseAttr(self, member):
-        if member.name == "xValue":
-            self._xValue = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "yValue":
-            self._yValue = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "zValue":
-            self._zValue = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "gravityCancellation":
-            self._gravityCancellation = member.ivalue
-            return 1
-        super(YAccelerometer, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("bandwidth"):
+            self._bandwidth = json_val.getInt("bandwidth")
+        if json_val.has("xValue"):
+            self._xValue = round(json_val.getDouble("xValue") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("yValue"):
+            self._yValue = round(json_val.getDouble("yValue") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("zValue"):
+            self._zValue = round(json_val.getDouble("zValue") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("gravityCancellation"):
+            self._gravityCancellation = (json_val.getInt("gravityCancellation") > 0 if 1 else 0)
+        super(YAccelerometer, self)._parseAttr(json_val)
+
+    def get_bandwidth(self):
+        """
+        Returns the measure update frequency, measured in Hz (Yocto-3D-V2 only).
+
+        @return an integer corresponding to the measure update frequency, measured in Hz (Yocto-3D-V2 only)
+
+        On failure, throws an exception or returns YAccelerometer.BANDWIDTH_INVALID.
+        """
+        # res
+        if self._cacheExpiration <= YAPI.GetTickCount():
+            if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
+                return YAccelerometer.BANDWIDTH_INVALID
+        res = self._bandwidth
+        return res
+
+    def set_bandwidth(self, newval):
+        """
+        Changes the measure update frequency, measured in Hz (Yocto-3D-V2 only). When the
+        frequency is lower, the device performs averaging.
+
+        @param newval : an integer corresponding to the measure update frequency, measured in Hz (Yocto-3D-V2 only)
+
+        @return YAPI.SUCCESS if the call succeeds.
+
+        On failure, throws an exception or returns a negative error code.
+        """
+        rest_val = str(newval)
+        return self._setAttr("bandwidth", rest_val)
 
     def get_xValue(self):
         """
@@ -106,10 +136,12 @@ class YAccelerometer(YSensor):
 
         On failure, throws an exception or returns YAccelerometer.XVALUE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YAccelerometer.XVALUE_INVALID
-        return self._xValue
+        res = self._xValue
+        return res
 
     def get_yValue(self):
         """
@@ -119,10 +151,12 @@ class YAccelerometer(YSensor):
 
         On failure, throws an exception or returns YAccelerometer.YVALUE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YAccelerometer.YVALUE_INVALID
-        return self._yValue
+        res = self._yValue
+        return res
 
     def get_zValue(self):
         """
@@ -132,16 +166,20 @@ class YAccelerometer(YSensor):
 
         On failure, throws an exception or returns YAccelerometer.ZVALUE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YAccelerometer.ZVALUE_INVALID
-        return self._zValue
+        res = self._zValue
+        return res
 
     def get_gravityCancellation(self):
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YAccelerometer.GRAVITYCANCELLATION_INVALID
-        return self._gravityCancellation
+        res = self._gravityCancellation
+        return res
 
     def set_gravityCancellation(self, newval):
         rest_val = "1" if newval > 0 else "0"
@@ -167,6 +205,10 @@ class YAccelerometer(YSensor):
         an accelerometer by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string that uniquely characterizes the accelerometer
 
@@ -196,7 +238,7 @@ class YAccelerometer(YSensor):
 
 #--- (end of YAccelerometer implementation)
 
-#--- (Accelerometer functions)
+#--- (YAccelerometer functions)
 
     @staticmethod
     def FirstAccelerometer():
@@ -230,4 +272,4 @@ class YAccelerometer(YSensor):
 
         return YAccelerometer.FindAccelerometer(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of Accelerometer functions)
+#--- (end of YAccelerometer functions)

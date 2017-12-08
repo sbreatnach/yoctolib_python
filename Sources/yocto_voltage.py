@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_voltage.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_voltage.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindVoltage(), the high-level API for Voltage functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -48,7 +49,7 @@ class YVoltage(YSensor):
     """
     The Yoctopuce class YVoltage allows you to read and configure Yoctopuce voltage
     sensors. It inherits from YSensor class the core functions to read measurements,
-    register callback functions, access to the autonomous datalogger.
+    to register callback functions, to access the autonomous datalogger.
 
     """
 #--- (end of YVoltage class start)
@@ -57,6 +58,9 @@ class YVoltage(YSensor):
     #--- (YVoltage dlldef)
     #--- (end of YVoltage dlldef)
     #--- (YVoltage definitions)
+    ENABLED_FALSE = 0
+    ENABLED_TRUE = 1
+    ENABLED_INVALID = -1
     #--- (end of YVoltage definitions)
 
     def __init__(self, func):
@@ -64,11 +68,26 @@ class YVoltage(YSensor):
         self._className = 'Voltage'
         #--- (YVoltage attributes)
         self._callback = None
+        self._enabled = YVoltage.ENABLED_INVALID
         #--- (end of YVoltage attributes)
 
     #--- (YVoltage implementation)
-    def _parseAttr(self, member):
-        super(YVoltage, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("enabled"):
+            self._enabled = (json_val.getInt("enabled") > 0 if 1 else 0)
+        super(YVoltage, self)._parseAttr(json_val)
+
+    def get_enabled(self):
+        # res
+        if self._cacheExpiration <= YAPI.GetTickCount():
+            if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
+                return YVoltage.ENABLED_INVALID
+        res = self._enabled
+        return res
+
+    def set_enabled(self, newval):
+        rest_val = "1" if newval > 0 else "0"
+        return self._setAttr("enabled", rest_val)
 
     @staticmethod
     def FindVoltage(func):
@@ -90,6 +109,10 @@ class YVoltage(YSensor):
         a voltage sensor by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string that uniquely characterizes the voltage sensor
 
@@ -119,7 +142,7 @@ class YVoltage(YSensor):
 
 #--- (end of YVoltage implementation)
 
-#--- (Voltage functions)
+#--- (YVoltage functions)
 
     @staticmethod
     def FirstVoltage():
@@ -153,4 +176,4 @@ class YVoltage(YSensor):
 
         return YVoltage.FindVoltage(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of Voltage functions)
+#--- (end of YVoltage functions)

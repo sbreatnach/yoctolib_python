@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_groundspeed.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_groundspeed.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindGroundSpeed(), the high-level API for GroundSpeed functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -68,8 +69,8 @@ class YGroundSpeed(YSensor):
         #--- (end of YGroundSpeed attributes)
 
     #--- (YGroundSpeed implementation)
-    def _parseAttr(self, member):
-        super(YGroundSpeed, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        super(YGroundSpeed, self)._parseAttr(json_val)
 
     @staticmethod
     def FindGroundSpeed(func):
@@ -91,6 +92,10 @@ class YGroundSpeed(YSensor):
         a ground speed sensor by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string that uniquely characterizes the ground speed sensor
 
@@ -120,7 +125,7 @@ class YGroundSpeed(YSensor):
 
 #--- (end of YGroundSpeed implementation)
 
-#--- (GroundSpeed functions)
+#--- (YGroundSpeed functions)
 
     @staticmethod
     def FirstGroundSpeed():
@@ -154,4 +159,4 @@ class YGroundSpeed(YSensor):
 
         return YGroundSpeed.FindGroundSpeed(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of GroundSpeed functions)
+#--- (end of YGroundSpeed functions)

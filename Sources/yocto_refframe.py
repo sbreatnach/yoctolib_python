@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_refframe.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_refframe.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindRefFrame(), the high-level API for RefFrame functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -39,6 +40,7 @@
 
 
 __docformat__ = 'restructuredtext en'
+import math
 from yocto_api import *
 
 
@@ -62,14 +64,20 @@ class YRefFrame(YFunction):
     class MOUNTPOSITION:
         def __init__(self):
             pass
-        BOTTOM, TOP, FRONT, REAR, RIGHT, LEFT = range(6)
+        BOTTOM, TOP, FRONT, REAR, RIGHT, LEFT, INVALID = range(7)
     class MOUNTORIENTATION:
         def __init__(self):
             pass
-        TWELVE, THREE, SIX, NINE = range(4)
+        TWELVE, THREE, SIX, NINE, INVALID = range(5)
     MOUNTPOS_INVALID = YAPI.INVALID_UINT
     BEARING_INVALID = YAPI.INVALID_DOUBLE
     CALIBRATIONPARAM_INVALID = YAPI.INVALID_STRING
+    FUSIONMODE_NDOF = 0
+    FUSIONMODE_NDOF_FMC_OFF = 1
+    FUSIONMODE_M4G = 2
+    FUSIONMODE_COMPASS = 3
+    FUSIONMODE_IMU = 4
+    FUSIONMODE_INVALID = -1
     #--- (end of YRefFrame definitions)
 
     def __init__(self, func):
@@ -80,6 +88,8 @@ class YRefFrame(YFunction):
         self._mountPos = YRefFrame.MOUNTPOS_INVALID
         self._bearing = YRefFrame.BEARING_INVALID
         self._calibrationParam = YRefFrame.CALIBRATIONPARAM_INVALID
+        self._fusionMode = YRefFrame.FUSIONMODE_INVALID
+        self._calibV2 = 0
         self._calibStage = 0
         self._calibStageHint = ''
         self._calibStageProgress = 0
@@ -103,23 +113,24 @@ class YRefFrame(YFunction):
         #--- (end of YRefFrame attributes)
 
     #--- (YRefFrame implementation)
-    def _parseAttr(self, member):
-        if member.name == "mountPos":
-            self._mountPos = member.ivalue
-            return 1
-        if member.name == "bearing":
-            self._bearing = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "calibrationParam":
-            self._calibrationParam = member.svalue
-            return 1
-        super(YRefFrame, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("mountPos"):
+            self._mountPos = json_val.getInt("mountPos")
+        if json_val.has("bearing"):
+            self._bearing = round(json_val.getDouble("bearing") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("calibrationParam"):
+            self._calibrationParam = json_val.getString("calibrationParam")
+        if json_val.has("fusionMode"):
+            self._fusionMode = json_val.getInt("fusionMode")
+        super(YRefFrame, self)._parseAttr(json_val)
 
     def get_mountPos(self):
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YRefFrame.MOUNTPOS_INVALID
-        return self._mountPos
+        res = self._mountPos
+        return res
 
     def set_mountPos(self, newval):
         rest_val = str(newval)
@@ -161,20 +172,36 @@ class YRefFrame(YFunction):
 
         On failure, throws an exception or returns YRefFrame.BEARING_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YRefFrame.BEARING_INVALID
-        return self._bearing
+        res = self._bearing
+        return res
 
     def get_calibrationParam(self):
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YRefFrame.CALIBRATIONPARAM_INVALID
-        return self._calibrationParam
+        res = self._calibrationParam
+        return res
 
     def set_calibrationParam(self, newval):
         rest_val = newval
         return self._setAttr("calibrationParam", rest_val)
+
+    def get_fusionMode(self):
+        # res
+        if self._cacheExpiration <= YAPI.GetTickCount():
+            if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
+                return YRefFrame.FUSIONMODE_INVALID
+        res = self._fusionMode
+        return res
+
+    def set_fusionMode(self, newval):
+        rest_val = str(newval)
+        return self._setAttr("fusionMode", rest_val)
 
     @staticmethod
     def FindRefFrame(func):
@@ -197,6 +224,10 @@ class YRefFrame(YFunction):
         found is returned. The search is performed first by hardware name,
         then by logical name.
 
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
+
         @param func : a string that uniquely characterizes the reference frame
 
         @return a YRefFrame object allowing you to drive the reference frame.
@@ -215,15 +246,17 @@ class YRefFrame(YFunction):
         pitch/roll tilt sensors.
 
         @return a value among the YRefFrame.MOUNTPOSITION enumeration
-                (YRefFrame.MOUNTPOSITION_BOTTOM,   YRefFrame.MOUNTPOSITION_TOP,
-                YRefFrame.MOUNTPOSITION_FRONT,    YRefFrame.MOUNTPOSITION_RIGHT,
-                YRefFrame.MOUNTPOSITION_REAR,     YRefFrame.MOUNTPOSITION_LEFT),
+                (YRefFrame.MOUNTPOSITION.BOTTOM,   YRefFrame.MOUNTPOSITION.TOP,
+                YRefFrame.MOUNTPOSITION.FRONT,    YRefFrame.MOUNTPOSITION.RIGHT,
+                YRefFrame.MOUNTPOSITION.REAR,     YRefFrame.MOUNTPOSITION.LEFT),
                 corresponding to the installation in a box, on one of the six faces.
 
-        On failure, throws an exception or returns a negative error code.
+        On failure, throws an exception or returns YRefFrame.MOUNTPOSITION.INVALID.
         """
         # position
         position = self.get_mountPos()
+        if position < 0:
+            return YRefFrame.MOUNTPOSITION.INVALID
         return ((position) >> (2))
 
     def get_mountOrientation(self):
@@ -233,17 +266,19 @@ class YRefFrame(YFunction):
         pitch/roll tilt sensors.
 
         @return a value among the enumeration YRefFrame.MOUNTORIENTATION
-                (YRefFrame.MOUNTORIENTATION_TWELVE, YRefFrame.MOUNTORIENTATION_THREE,
-                YRefFrame.MOUNTORIENTATION_SIX,     YRefFrame.MOUNTORIENTATION_NINE)
+                (YRefFrame.MOUNTORIENTATION.TWELVE, YRefFrame.MOUNTORIENTATION.THREE,
+                YRefFrame.MOUNTORIENTATION.SIX,     YRefFrame.MOUNTORIENTATION.NINE)
                 corresponding to the orientation of the "X" arrow on the device,
                 as on a clock dial seen from an observer in the center of the box.
                 On the bottom face, the 12H orientation points to the front, while
                 on the top face, the 12H orientation points to the rear.
 
-        On failure, throws an exception or returns a negative error code.
+        On failure, throws an exception or returns YRefFrame.MOUNTORIENTATION.INVALID.
         """
         # position
         position = self.get_mountPos()
+        if position < 0:
+            return YRefFrame.MOUNTORIENTATION.INVALID
         return ((position) & (3))
 
     def set_mountPosition(self, position, orientation):
@@ -255,13 +290,13 @@ class YRefFrame(YFunction):
         the earth surface) so that the measures are made relative to this position.
 
         @param position : a value among the YRefFrame.MOUNTPOSITION enumeration
-                (YRefFrame.MOUNTPOSITION_BOTTOM,   YRefFrame.MOUNTPOSITION_TOP,
-                YRefFrame.MOUNTPOSITION_FRONT,    YRefFrame.MOUNTPOSITION_RIGHT,
-                YRefFrame.MOUNTPOSITION_REAR,     YRefFrame.MOUNTPOSITION_LEFT),
+                (YRefFrame.MOUNTPOSITION.BOTTOM,   YRefFrame.MOUNTPOSITION.TOP,
+                YRefFrame.MOUNTPOSITION.FRONT,    YRefFrame.MOUNTPOSITION.RIGHT,
+                YRefFrame.MOUNTPOSITION.REAR,     YRefFrame.MOUNTPOSITION.LEFT),
                 corresponding to the installation in a box, on one of the six faces.
         @param orientation : a value among the enumeration YRefFrame.MOUNTORIENTATION
-                (YRefFrame.MOUNTORIENTATION_TWELVE, YRefFrame.MOUNTORIENTATION_THREE,
-                YRefFrame.MOUNTORIENTATION_SIX,     YRefFrame.MOUNTORIENTATION_NINE)
+                (YRefFrame.MOUNTORIENTATION.TWELVE, YRefFrame.MOUNTORIENTATION.THREE,
+                YRefFrame.MOUNTORIENTATION.SIX,     YRefFrame.MOUNTORIENTATION.NINE)
                 corresponding to the orientation of the "X" arrow on the device,
                 as on a clock dial seen from an observer in the center of the box.
                 On the bottom face, the 12H orientation points to the front, while
@@ -275,6 +310,61 @@ class YRefFrame(YFunction):
         # mixedPos
         mixedPos = ((position) << (2)) + orientation
         return self.set_mountPos(mixedPos)
+
+    def get_calibrationState(self):
+        """
+        Returns the 3D sensor calibration state (Yocto-3D-V2 only). This function returns
+        an integer representing the calibration state of the 3 inertial sensors of
+        the BNO055 chip, found in the Yocto-3D-V2. Hundredths show the calibration state
+        of the accelerometer, tenths show the calibration state of the magnetometer while
+        units show the calibration state of the gyroscope. For each sensor, the value 0
+        means no calibration and the value 3 means full calibration.
+
+        @return an integer representing the calibration state of Yocto-3D-V2:
+                333 when fully calibrated, 0 when not calibrated at all.
+
+        On failure, throws an exception or returns a negative error code.
+        For the Yocto-3D (V1), this function always return -3 (unsupported function).
+        """
+        # calibParam
+        iCalib = []
+        # caltyp
+        # res
+
+        calibParam = self.get_calibrationParam()
+        iCalib = YAPI._decodeFloats(calibParam)
+        caltyp = int((iCalib[0]) / (1000))
+        if caltyp != 33:
+            return YAPI.NOT_SUPPORTED
+        res = int((iCalib[1]) / (1000))
+        return res
+
+    def get_measureQuality(self):
+        """
+        Returns estimated quality of the orientation (Yocto-3D-V2 only). This function returns
+        an integer between 0 and 3 representing the degree of confidence of the position
+        estimate. When the value is 3, the estimation is reliable. Below 3, one should
+        expect sudden corrections, in particular for heading (compass function).
+        The most frequent causes for values below 3 are magnetic interferences, and
+        accelerations or rotations beyond the sensor range.
+
+        @return an integer between 0 and 3 (3 when the measure is reliable)
+
+        On failure, throws an exception or returns a negative error code.
+        For the Yocto-3D (V1), this function always return -3 (unsupported function).
+        """
+        # calibParam
+        iCalib = []
+        # caltyp
+        # res
+
+        calibParam = self.get_calibrationParam()
+        iCalib = YAPI._decodeFloats(calibParam)
+        caltyp = int((iCalib[0]) / (1000))
+        if caltyp != 33:
+            return YAPI.NOT_SUPPORTED
+        res = int((iCalib[2]) / (1000))
+        return res
 
     def _calibSort(self, start, stopidx):
         # idx
@@ -329,12 +419,12 @@ class YRefFrame(YFunction):
 
         On failure, throws an exception or returns a negative error code.
         """
-        # // may throw an exception
         if not (self.isOnline()):
             return YAPI.DEVICE_NOT_FOUND
         if self._calibStage != 0:
             self.cancel3DCalibration()
         self._calibSavedParams = self.get_calibrationParam()
+        self._calibV2 = (YAPI._atoi(self._calibSavedParams) == 33)
         self.set_calibrationParam("0")
         self._calibCount = 50
         self._calibStage = 1
@@ -361,7 +451,11 @@ class YRefFrame(YFunction):
 
         On failure, throws an exception or returns a negative error code.
         """
-        # // may throw an exception
+        if self._calibV2:
+            return self.more3DCalibrationV2()
+        return self.more3DCalibrationV1()
+
+    def more3DCalibrationV1(self):
         # currTick
         # jsonData
         # xVal
@@ -407,7 +501,7 @@ class YRefFrame(YFunction):
             return YAPI.SUCCESS
         if zSq >= 1.44:
             return YAPI.SUCCESS
-        norm = sqrt(xSq + ySq + zSq)
+        norm = math.sqrt(xSq + ySq + zSq)
         if norm < 0.8 or norm > 1.2:
             return YAPI.SUCCESS
         self._calibPrevTick = currTick
@@ -430,7 +524,7 @@ class YRefFrame(YFunction):
                 orient = 5
         # // Discard measures that are not in the proper orientation
         if self._calibStageProgress == 0:
-            #
+            # // New stage, check that this orientation is not yet done
             idx = 0
             err = 0
             while idx + 1 < self._calibStage:
@@ -442,7 +536,7 @@ class YRefFrame(YFunction):
                 return YAPI.SUCCESS
             self._calibOrient.append(orient)
         else:
-            #
+            # // Make sure device is not turned before stage is completed
             if orient != self._calibOrient[self._calibStage-1]:
                 self._calibStageHint = "Not yet done, please move back to the previous face"
                 return YAPI.SUCCESS
@@ -494,7 +588,7 @@ class YRefFrame(YFunction):
             xVal = self._calibDataAccX[intpos] - self._calibAccXOfs
             yVal = self._calibDataAccY[intpos] - self._calibAccYOfs
             zVal = self._calibDataAccZ[intpos] - self._calibAccZOfs
-            norm = sqrt(xVal * xVal + yVal * yVal + zVal * zVal)
+            norm = math.sqrt(xVal * xVal + yVal * yVal + zVal * zVal)
             self._calibDataAcc[intpos] = norm
             intpos = intpos + 1
         idx = 0
@@ -523,6 +617,56 @@ class YRefFrame(YFunction):
         # // Report completion
         self._calibProgress = 100
         self._calibStageHint = "Calibration data ready for saving"
+        return YAPI.SUCCESS
+
+    def more3DCalibrationV2(self):
+        # currTick
+        # calibParam
+        iCalib = []
+        # cal3
+        # calAcc
+        # calMag
+        # calGyr
+        # // make sure calibration has been started
+        if self._calibStage == 0:
+            return YAPI.INVALID_ARGUMENT
+        if self._calibProgress == 100:
+            return YAPI.SUCCESS
+        # // make sure we don't start before previous calibration is cleared
+        if self._calibStage == 1:
+            currTick = (YRelTickCount(YAPI.GetTickCount()) & (0x7FFFFFFF))
+            currTick = ((currTick - self._calibPrevTick) & (0x7FFFFFFF))
+            if currTick < 1600:
+                self._calibStageHint = "Set down the device on a steady horizontal surface"
+                self._calibStageProgress = int((currTick) / (40))
+                self._calibProgress = 1
+                return YAPI.SUCCESS
+
+        calibParam = self._download("api/refFrame/calibrationParam.txt")
+        iCalib = YAPI._decodeFloats(YByte2String(calibParam))
+        cal3 = int((iCalib[1]) / (1000))
+        calAcc = int((cal3) / (100))
+        calMag = int((cal3) / (10)) - 10*calAcc
+        calGyr = ((cal3) % (10))
+        if calGyr < 3:
+            self._calibStageHint = "Set down the device on a steady horizontal surface"
+            self._calibStageProgress = 40 + calGyr*20
+            self._calibProgress = 4 + calGyr*2
+        else:
+            self._calibStage = 2
+            if calMag < 3:
+                self._calibStageHint = "Slowly draw '8' shapes along the 3 axis"
+                self._calibStageProgress = 1 + calMag*33
+                self._calibProgress = 10 + calMag*5
+            else:
+                self._calibStage = 3
+                if calAcc < 3:
+                    self._calibStageHint = "Slowly turn the device, stopping at each 90 degrees"
+                    self._calibStageProgress = 1 + calAcc*33
+                    self._calibProgress = 25 + calAcc*25
+                else:
+                    self._calibStageProgress = 99
+                    self._calibProgress = 100
         return YAPI.SUCCESS
 
     def get_3DCalibrationHint(self):
@@ -581,7 +725,11 @@ class YRefFrame(YFunction):
 
         On failure, throws an exception or returns a negative error code.
         """
-        # // may throw an exception
+        if self._calibV2:
+            return self.save3DCalibrationV2()
+        return self.save3DCalibrationV1()
+
+    def save3DCalibrationV1(self):
         # shiftX
         # shiftY
         # shiftZ
@@ -634,6 +782,9 @@ class YRefFrame(YFunction):
         self._calibStage = 0
         return self.set_calibrationParam(newcalib)
 
+    def save3DCalibrationV2(self):
+        return self.set_calibrationParam("5,5,5,5,5,5")
+
     def cancel3DCalibration(self):
         """
         Aborts the sensors tridimensional calibration process et restores normal settings.
@@ -642,7 +793,7 @@ class YRefFrame(YFunction):
         """
         if self._calibStage == 0:
             return YAPI.SUCCESS
-        # // may throw an exception
+
         self._calibStage = 0
         return self.set_calibrationParam(self._calibSavedParams)
 
@@ -663,7 +814,7 @@ class YRefFrame(YFunction):
 
 #--- (end of YRefFrame implementation)
 
-#--- (RefFrame functions)
+#--- (YRefFrame functions)
 
     @staticmethod
     def FirstRefFrame():
@@ -697,4 +848,4 @@ class YRefFrame(YFunction):
 
         return YRefFrame.FindRefFrame(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of RefFrame functions)
+#--- (end of YRefFrame functions)

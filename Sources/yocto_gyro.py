@@ -1,35 +1,36 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_gyro.py 22360 2015-12-15 13:31:40Z seb $
+#* $Id: yocto_gyro.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindGyro(), the high-level API for Gyro functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
 #*  Yoctopuce Sarl (hereafter Licensor) grants to you a perpetual
 #*  non-exclusive license to use, modify, copy and integrate this
-#*  file into your software for the sole purpose of interfacing 
-#*  with Yoctopuce products. 
+#*  file into your software for the sole purpose of interfacing
+#*  with Yoctopuce products.
 #*
-#*  You may reproduce and distribute copies of this file in 
+#*  You may reproduce and distribute copies of this file in
 #*  source or object form, as long as the sole purpose of this
-#*  code is to interface with Yoctopuce products. You must retain 
+#*  code is to interface with Yoctopuce products. You must retain
 #*  this notice in the distributed source file.
 #*
 #*  You should refer to Yoctopuce General Terms and Conditions
-#*  for additional information regarding your rights and 
+#*  for additional information regarding your rights and
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
-#*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+#*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
-#*  INDIRECT OR CONSEQUENTIAL DAMAGES, LOST PROFITS OR LOST DATA, 
-#*  COST OF PROCUREMENT OF SUBSTITUTE GOODS, TECHNOLOGY OR 
-#*  SERVICES, ANY CLAIMS BY THIRD PARTIES (INCLUDING BUT NOT 
+#*  INDIRECT OR CONSEQUENTIAL DAMAGES, LOST PROFITS OR LOST DATA,
+#*  COST OF PROCUREMENT OF SUBSTITUTE GOODS, TECHNOLOGY OR
+#*  SERVICES, ANY CLAIMS BY THIRD PARTIES (INCLUDING BUT NOT
 #*  LIMITED TO ANY DEFENSE THEREOF), ANY CLAIMS FOR INDEMNITY OR
 #*  CONTRIBUTION, OR OTHER SIMILAR COSTS, WHETHER ASSERTED ON THE
 #*  BASIS OF CONTRACT, TORT (INCLUDING NEGLIGENCE), BREACH OF
@@ -65,8 +66,8 @@ class YQt(YSensor):
         #--- (end of generated code: YQt attributes)
 
     #--- (generated code: YQt implementation)
-    def _parseAttr(self, member):
-        super(YQt, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        super(YQt, self)._parseAttr(json_val)
 
     @staticmethod
     def FindQt(func):
@@ -88,6 +89,10 @@ class YQt(YSensor):
         a quaternion component by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string that uniquely characterizes the quaternion component
 
@@ -117,7 +122,7 @@ class YQt(YSensor):
 
 #--- (end of generated code: YQt implementation)
 
-#--- (generated code: Qt functions)
+#--- (generated code: YQt functions)
 
     @staticmethod
     def FirstQt():
@@ -151,7 +156,7 @@ class YQt(YSensor):
 
         return YQt.FindQt(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of generated code: Qt functions)
+#--- (end of generated code: YQt functions)
 
 def yInternalGyroCallback(YQt_obj, str_value):
     gyro = YQt_obj.get_userData()
@@ -182,6 +187,7 @@ class YGyro(YSensor):
     #--- (generated code: YGyro return codes)
     #--- (end of generated code: YGyro return codes)
     #--- (generated code: YGyro definitions)
+    BANDWIDTH_INVALID = YAPI.INVALID_INT
     XVALUE_INVALID = YAPI.INVALID_DOUBLE
     YVALUE_INVALID = YAPI.INVALID_DOUBLE
     ZVALUE_INVALID = YAPI.INVALID_DOUBLE
@@ -192,6 +198,7 @@ class YGyro(YSensor):
         self._className = 'Gyro'
         #--- (generated code: YGyro attributes)
         self._callback = None
+        self._bandwidth = YGyro.BANDWIDTH_INVALID
         self._xValue = YGyro.XVALUE_INVALID
         self._yValue = YGyro.YVALUE_INVALID
         self._zValue = YGyro.ZVALUE_INVALID
@@ -213,17 +220,45 @@ class YGyro(YSensor):
         #--- (end of generated code: YGyro attributes)
 
     #--- (generated code: YGyro implementation)
-    def _parseAttr(self, member):
-        if member.name == "xValue":
-            self._xValue = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "yValue":
-            self._yValue = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "zValue":
-            self._zValue = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        super(YGyro, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("bandwidth"):
+            self._bandwidth = json_val.getInt("bandwidth")
+        if json_val.has("xValue"):
+            self._xValue = round(json_val.getDouble("xValue") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("yValue"):
+            self._yValue = round(json_val.getDouble("yValue") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("zValue"):
+            self._zValue = round(json_val.getDouble("zValue") * 1000.0 / 65536.0) / 1000.0
+        super(YGyro, self)._parseAttr(json_val)
+
+    def get_bandwidth(self):
+        """
+        Returns the measure update frequency, measured in Hz (Yocto-3D-V2 only).
+
+        @return an integer corresponding to the measure update frequency, measured in Hz (Yocto-3D-V2 only)
+
+        On failure, throws an exception or returns YGyro.BANDWIDTH_INVALID.
+        """
+        # res
+        if self._cacheExpiration <= YAPI.GetTickCount():
+            if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
+                return YGyro.BANDWIDTH_INVALID
+        res = self._bandwidth
+        return res
+
+    def set_bandwidth(self, newval):
+        """
+        Changes the measure update frequency, measured in Hz (Yocto-3D-V2 only). When the
+        frequency is lower, the device performs averaging.
+
+        @param newval : an integer corresponding to the measure update frequency, measured in Hz (Yocto-3D-V2 only)
+
+        @return YAPI.SUCCESS if the call succeeds.
+
+        On failure, throws an exception or returns a negative error code.
+        """
+        rest_val = str(newval)
+        return self._setAttr("bandwidth", rest_val)
 
     def get_xValue(self):
         """
@@ -234,10 +269,12 @@ class YGyro(YSensor):
 
         On failure, throws an exception or returns YGyro.XVALUE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YGyro.XVALUE_INVALID
-        return self._xValue
+        res = self._xValue
+        return res
 
     def get_yValue(self):
         """
@@ -248,10 +285,12 @@ class YGyro(YSensor):
 
         On failure, throws an exception or returns YGyro.YVALUE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YGyro.YVALUE_INVALID
-        return self._yValue
+        res = self._yValue
+        return res
 
     def get_zValue(self):
         """
@@ -262,10 +301,12 @@ class YGyro(YSensor):
 
         On failure, throws an exception or returns YGyro.ZVALUE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YGyro.ZVALUE_INVALID
-        return self._zValue
+        res = self._zValue
+        return res
 
     @staticmethod
     def FindGyro(func):
@@ -287,6 +328,10 @@ class YGyro(YSensor):
         a gyroscope by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string that uniquely characterizes the gyroscope
 
@@ -312,7 +357,6 @@ class YGyro(YSensor):
                 self._qt_x = YQt.FindQt("" + self._serial + ".qt2")
                 self._qt_y = YQt.FindQt("" + self._serial + ".qt3")
                 self._qt_z = YQt.FindQt("" + self._serial + ".qt4")
-            #
             if self._qt_w.load(9) != YAPI.SUCCESS:
                 return YAPI.DEVICE_NOT_FOUND
             if self._qt_x.load(9) != YAPI.SUCCESS:
@@ -335,7 +379,7 @@ class YGyro(YSensor):
         # sqz
         # norm
         # delta
-        # // may throw an exception
+
         if self._loadQuaternion() != YAPI.SUCCESS:
             return YAPI.DEVICE_NOT_FOUND
         if self._angles_stamp != self._qt_stamp:
@@ -346,14 +390,14 @@ class YGyro(YSensor):
             norm = sqx + sqy + sqz + sqw
             delta = self._y * self._w - self._x * self._z
             if delta > 0.499 * norm:
-                #
+                # // singularity at north pole
                 self._pitch = 90.0
-                self._head  = round(2.0 * 1800.0/math.pi * math.atan2(self._x,self._w)) / 10.0
+                self._head  = round(2.0 * 1800.0/math.pi * math.atan2(self._x,-self._w)) / 10.0
             else:
                 if delta < -0.499 * norm:
-                    #
+                    # // singularity at south pole
                     self._pitch = -90.0
-                    self._head  = round(-2.0 * 1800.0/math.pi * math.atan2(self._x,self._w)) / 10.0
+                    self._head  = round(-2.0 * 1800.0/math.pi * math.atan2(self._x,-self._w)) / 10.0
                 else:
                     self._roll  = round(1800.0/math.pi * math.atan2(2.0 * (self._w * self._x + self._y * self._z),sqw - sqx - sqy + sqz)) / 10.0
                     self._pitch = round(1800.0/math.pi * math.asin(2.0 * delta / norm)) / 10.0
@@ -373,7 +417,6 @@ class YGyro(YSensor):
         @return a floating-point number corresponding to roll angle
                 in degrees, between -180 and +180.
         """
-        # // may throw an exception
         self._loadAngles()
         return self._roll
 
@@ -389,7 +432,6 @@ class YGyro(YSensor):
         @return a floating-point number corresponding to pitch angle
                 in degrees, between -90 and +90.
         """
-        # // may throw an exception
         self._loadAngles()
         return self._pitch
 
@@ -405,7 +447,6 @@ class YGyro(YSensor):
         @return a floating-point number corresponding to heading
                 in degrees, between 0 and 360.
         """
-        # // may throw an exception
         self._loadAngles()
         return self._head
 
@@ -419,7 +460,6 @@ class YGyro(YSensor):
         @return a floating-point number corresponding to the w
                 component of the quaternion.
         """
-        # // may throw an exception
         self._loadQuaternion()
         return self._w
 
@@ -434,7 +474,6 @@ class YGyro(YSensor):
         @return a floating-point number corresponding to the x
                 component of the quaternion.
         """
-        # // may throw an exception
         self._loadQuaternion()
         return self._x
 
@@ -449,7 +488,6 @@ class YGyro(YSensor):
         @return a floating-point number corresponding to the y
                 component of the quaternion.
         """
-        # // may throw an exception
         self._loadQuaternion()
         return self._y
 
@@ -464,7 +502,6 @@ class YGyro(YSensor):
         @return a floating-point number corresponding to the z
                 component of the quaternion.
         """
-        # // may throw an exception
         self._loadQuaternion()
         return self._z
 
@@ -486,7 +523,6 @@ class YGyro(YSensor):
         """
         self._quatCallback = callback
         if callback is not None:
-            #
             if self._loadQuaternion() != YAPI.SUCCESS:
                 return YAPI.DEVICE_NOT_FOUND
             self._qt_w.set_userData(self)
@@ -523,7 +559,6 @@ class YGyro(YSensor):
         """
         self._anglesCallback = callback
         if callback is not None:
-            #
             if self._loadQuaternion() != YAPI.SUCCESS:
                 return YAPI.DEVICE_NOT_FOUND
             self._qt_w.set_userData(self)
@@ -557,7 +592,6 @@ class YGyro(YSensor):
         if self._quatCallback is not None:
             self._quatCallback(self, self._w, self._x, self._y, self._z)
         if self._anglesCallback is not None:
-            #
             self._loadAngles()
             self._anglesCallback(self, self._roll, self._pitch, self._head)
         return 0
@@ -579,7 +613,7 @@ class YGyro(YSensor):
 
 #--- (end of generated code: YGyro implementation)
 
-#--- (generated code: Gyro functions)
+#--- (generated code: YGyro functions)
 
     @staticmethod
     def FirstGyro():
@@ -613,4 +647,4 @@ class YGyro(YSensor):
 
         return YGyro.FindGyro(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of generated code: Gyro functions)
+#--- (end of generated code: YGyro functions)

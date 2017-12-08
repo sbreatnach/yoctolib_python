@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_network.py 23930 2016-04-15 09:31:14Z seb $
+#* $Id: yocto_network.py 29078 2017-11-03 16:27:50Z seb $
 #*
 #* Implements yFindNetwork(), the high-level API for Network functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -72,6 +73,7 @@ class YNetwork(YFunction):
     CALLBACKURL_INVALID = YAPI.INVALID_STRING
     CALLBACKCREDENTIALS_INVALID = YAPI.INVALID_STRING
     CALLBACKINITIALDELAY_INVALID = YAPI.INVALID_UINT
+    CALLBACKSCHEDULE_INVALID = YAPI.INVALID_STRING
     CALLBACKMINDELAY_INVALID = YAPI.INVALID_UINT
     CALLBACKMAXDELAY_INVALID = YAPI.INVALID_UINT
     POECURRENT_INVALID = YAPI.INVALID_UINT
@@ -98,6 +100,7 @@ class YNetwork(YFunction):
     CALLBACKENCODING_AZURE = 7
     CALLBACKENCODING_INFLUXDB = 8
     CALLBACKENCODING_MQTT = 9
+    CALLBACKENCODING_YOCTO_API_JZON = 10
     CALLBACKENCODING_INVALID = -1
     #--- (end of YNetwork definitions)
 
@@ -126,83 +129,63 @@ class YNetwork(YFunction):
         self._callbackEncoding = YNetwork.CALLBACKENCODING_INVALID
         self._callbackCredentials = YNetwork.CALLBACKCREDENTIALS_INVALID
         self._callbackInitialDelay = YNetwork.CALLBACKINITIALDELAY_INVALID
+        self._callbackSchedule = YNetwork.CALLBACKSCHEDULE_INVALID
         self._callbackMinDelay = YNetwork.CALLBACKMINDELAY_INVALID
         self._callbackMaxDelay = YNetwork.CALLBACKMAXDELAY_INVALID
         self._poeCurrent = YNetwork.POECURRENT_INVALID
         #--- (end of YNetwork attributes)
 
     #--- (YNetwork implementation)
-    def _parseAttr(self, member):
-        if member.name == "readiness":
-            self._readiness = member.ivalue
-            return 1
-        if member.name == "macAddress":
-            self._macAddress = member.svalue
-            return 1
-        if member.name == "ipAddress":
-            self._ipAddress = member.svalue
-            return 1
-        if member.name == "subnetMask":
-            self._subnetMask = member.svalue
-            return 1
-        if member.name == "router":
-            self._router = member.svalue
-            return 1
-        if member.name == "ipConfig":
-            self._ipConfig = member.svalue
-            return 1
-        if member.name == "primaryDNS":
-            self._primaryDNS = member.svalue
-            return 1
-        if member.name == "secondaryDNS":
-            self._secondaryDNS = member.svalue
-            return 1
-        if member.name == "ntpServer":
-            self._ntpServer = member.svalue
-            return 1
-        if member.name == "userPassword":
-            self._userPassword = member.svalue
-            return 1
-        if member.name == "adminPassword":
-            self._adminPassword = member.svalue
-            return 1
-        if member.name == "httpPort":
-            self._httpPort = member.ivalue
-            return 1
-        if member.name == "defaultPage":
-            self._defaultPage = member.svalue
-            return 1
-        if member.name == "discoverable":
-            self._discoverable = member.ivalue
-            return 1
-        if member.name == "wwwWatchdogDelay":
-            self._wwwWatchdogDelay = member.ivalue
-            return 1
-        if member.name == "callbackUrl":
-            self._callbackUrl = member.svalue
-            return 1
-        if member.name == "callbackMethod":
-            self._callbackMethod = member.ivalue
-            return 1
-        if member.name == "callbackEncoding":
-            self._callbackEncoding = member.ivalue
-            return 1
-        if member.name == "callbackCredentials":
-            self._callbackCredentials = member.svalue
-            return 1
-        if member.name == "callbackInitialDelay":
-            self._callbackInitialDelay = member.ivalue
-            return 1
-        if member.name == "callbackMinDelay":
-            self._callbackMinDelay = member.ivalue
-            return 1
-        if member.name == "callbackMaxDelay":
-            self._callbackMaxDelay = member.ivalue
-            return 1
-        if member.name == "poeCurrent":
-            self._poeCurrent = member.ivalue
-            return 1
-        super(YNetwork, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("readiness"):
+            self._readiness = json_val.getInt("readiness")
+        if json_val.has("macAddress"):
+            self._macAddress = json_val.getString("macAddress")
+        if json_val.has("ipAddress"):
+            self._ipAddress = json_val.getString("ipAddress")
+        if json_val.has("subnetMask"):
+            self._subnetMask = json_val.getString("subnetMask")
+        if json_val.has("router"):
+            self._router = json_val.getString("router")
+        if json_val.has("ipConfig"):
+            self._ipConfig = json_val.getString("ipConfig")
+        if json_val.has("primaryDNS"):
+            self._primaryDNS = json_val.getString("primaryDNS")
+        if json_val.has("secondaryDNS"):
+            self._secondaryDNS = json_val.getString("secondaryDNS")
+        if json_val.has("ntpServer"):
+            self._ntpServer = json_val.getString("ntpServer")
+        if json_val.has("userPassword"):
+            self._userPassword = json_val.getString("userPassword")
+        if json_val.has("adminPassword"):
+            self._adminPassword = json_val.getString("adminPassword")
+        if json_val.has("httpPort"):
+            self._httpPort = json_val.getInt("httpPort")
+        if json_val.has("defaultPage"):
+            self._defaultPage = json_val.getString("defaultPage")
+        if json_val.has("discoverable"):
+            self._discoverable = (json_val.getInt("discoverable") > 0 if 1 else 0)
+        if json_val.has("wwwWatchdogDelay"):
+            self._wwwWatchdogDelay = json_val.getInt("wwwWatchdogDelay")
+        if json_val.has("callbackUrl"):
+            self._callbackUrl = json_val.getString("callbackUrl")
+        if json_val.has("callbackMethod"):
+            self._callbackMethod = json_val.getInt("callbackMethod")
+        if json_val.has("callbackEncoding"):
+            self._callbackEncoding = json_val.getInt("callbackEncoding")
+        if json_val.has("callbackCredentials"):
+            self._callbackCredentials = json_val.getString("callbackCredentials")
+        if json_val.has("callbackInitialDelay"):
+            self._callbackInitialDelay = json_val.getInt("callbackInitialDelay")
+        if json_val.has("callbackSchedule"):
+            self._callbackSchedule = json_val.getString("callbackSchedule")
+        if json_val.has("callbackMinDelay"):
+            self._callbackMinDelay = json_val.getInt("callbackMinDelay")
+        if json_val.has("callbackMaxDelay"):
+            self._callbackMaxDelay = json_val.getInt("callbackMaxDelay")
+        if json_val.has("poeCurrent"):
+            self._poeCurrent = json_val.getInt("poeCurrent")
+        super(YNetwork, self)._parseAttr(json_val)
 
     def get_readiness(self):
         """
@@ -227,10 +210,12 @@ class YNetwork(YFunction):
 
         On failure, throws an exception or returns YNetwork.READINESS_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.READINESS_INVALID
-        return self._readiness
+        res = self._readiness
+        return res
 
     def get_macAddress(self):
         """
@@ -241,10 +226,12 @@ class YNetwork(YFunction):
 
         On failure, throws an exception or returns YNetwork.MACADDRESS_INVALID.
         """
-        if self._cacheExpiration == datetime.datetime.fromtimestamp(0):
+        # res
+        if self._cacheExpiration == datetime.datetime.fromtimestamp(86400):
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.MACADDRESS_INVALID
-        return self._macAddress
+        res = self._macAddress
+        return res
 
     def get_ipAddress(self):
         """
@@ -255,10 +242,12 @@ class YNetwork(YFunction):
 
         On failure, throws an exception or returns YNetwork.IPADDRESS_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.IPADDRESS_INVALID
-        return self._ipAddress
+        res = self._ipAddress
+        return res
 
     def get_subnetMask(self):
         """
@@ -268,10 +257,12 @@ class YNetwork(YFunction):
 
         On failure, throws an exception or returns YNetwork.SUBNETMASK_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.SUBNETMASK_INVALID
-        return self._subnetMask
+        res = self._subnetMask
+        return res
 
     def get_router(self):
         """
@@ -281,16 +272,39 @@ class YNetwork(YFunction):
 
         On failure, throws an exception or returns YNetwork.ROUTER_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.ROUTER_INVALID
-        return self._router
+        res = self._router
+        return res
 
     def get_ipConfig(self):
+        """
+        Returns the IP configuration of the network interface.
+
+        If the network interface is setup to use a static IP address, the string starts with "STATIC:" and
+        is followed by three
+        parameters, separated by "/". The first is the device IP address, followed by the subnet mask
+        length, and finally the
+        router IP address (default gateway). For instance: "STATIC:192.168.1.14/16/192.168.1.1"
+
+        If the network interface is configured to receive its IP from a DHCP server, the string start with
+        "DHCP:" and is followed by
+        three parameters separated by "/". The first is the fallback IP address, then the fallback subnet
+        mask length and finally the
+        fallback router IP address. These three parameters are used when no DHCP reply is received.
+
+        @return a string corresponding to the IP configuration of the network interface
+
+        On failure, throws an exception or returns YNetwork.IPCONFIG_INVALID.
+        """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.IPCONFIG_INVALID
-        return self._ipConfig
+        res = self._ipConfig
+        return res
 
     def set_ipConfig(self, newval):
         rest_val = newval
@@ -304,10 +318,12 @@ class YNetwork(YFunction):
 
         On failure, throws an exception or returns YNetwork.PRIMARYDNS_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.PRIMARYDNS_INVALID
-        return self._primaryDNS
+        res = self._primaryDNS
+        return res
 
     def set_primaryDNS(self, newval):
         """
@@ -332,10 +348,12 @@ class YNetwork(YFunction):
 
         On failure, throws an exception or returns YNetwork.SECONDARYDNS_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.SECONDARYDNS_INVALID
-        return self._secondaryDNS
+        res = self._secondaryDNS
+        return res
 
     def set_secondaryDNS(self, newval):
         """
@@ -360,10 +378,12 @@ class YNetwork(YFunction):
 
         On failure, throws an exception or returns YNetwork.NTPSERVER_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.NTPSERVER_INVALID
-        return self._ntpServer
+        res = self._ntpServer
+        return res
 
     def set_ntpServer(self, newval):
         """
@@ -389,10 +409,12 @@ class YNetwork(YFunction):
 
         On failure, throws an exception or returns YNetwork.USERPASSWORD_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.USERPASSWORD_INVALID
-        return self._userPassword
+        res = self._userPassword
+        return res
 
     def set_userPassword(self, newval):
         """
@@ -408,6 +430,9 @@ class YNetwork(YFunction):
 
         On failure, throws an exception or returns a negative error code.
         """
+        if len(newval) > YAPI.HASH_BUF_SIZE:
+            self._throw(YAPI.INVALID_ARGUMENT, "Password too long :" + newval)
+            return YAPI.INVALID_ARGUMENT
         rest_val = newval
         return self._setAttr("userPassword", rest_val)
 
@@ -421,10 +446,12 @@ class YNetwork(YFunction):
 
         On failure, throws an exception or returns YNetwork.ADMINPASSWORD_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.ADMINPASSWORD_INVALID
-        return self._adminPassword
+        res = self._adminPassword
+        return res
 
     def set_adminPassword(self, newval):
         """
@@ -440,6 +467,9 @@ class YNetwork(YFunction):
 
         On failure, throws an exception or returns a negative error code.
         """
+        if len(newval) > YAPI.HASH_BUF_SIZE:
+            self._throw(YAPI.INVALID_ARGUMENT, "Password too long :" + newval)
+            return YAPI.INVALID_ARGUMENT
         rest_val = newval
         return self._setAttr("adminPassword", rest_val)
 
@@ -451,10 +481,12 @@ class YNetwork(YFunction):
 
         On failure, throws an exception or returns YNetwork.HTTPPORT_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.HTTPPORT_INVALID
-        return self._httpPort
+        res = self._httpPort
+        return res
 
     def set_httpPort(self, newval):
         """
@@ -479,10 +511,12 @@ class YNetwork(YFunction):
 
         On failure, throws an exception or returns YNetwork.DEFAULTPAGE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.DEFAULTPAGE_INVALID
-        return self._defaultPage
+        res = self._defaultPage
+        return res
 
     def set_defaultPage(self, newval):
         """
@@ -510,10 +544,12 @@ class YNetwork(YFunction):
 
         On failure, throws an exception or returns YNetwork.DISCOVERABLE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.DISCOVERABLE_INVALID
-        return self._discoverable
+        res = self._discoverable
+        return res
 
     def set_discoverable(self, newval):
         """
@@ -543,10 +579,12 @@ class YNetwork(YFunction):
 
         On failure, throws an exception or returns YNetwork.WWWWATCHDOGDELAY_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.WWWWATCHDOGDELAY_INVALID
-        return self._wwwWatchdogDelay
+        res = self._wwwWatchdogDelay
+        return res
 
     def set_wwwWatchdogDelay(self, newval):
         """
@@ -574,10 +612,12 @@ class YNetwork(YFunction):
 
         On failure, throws an exception or returns YNetwork.CALLBACKURL_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.CALLBACKURL_INVALID
-        return self._callbackUrl
+        res = self._callbackUrl
+        return res
 
     def set_callbackUrl(self, newval):
         """
@@ -603,10 +643,12 @@ class YNetwork(YFunction):
 
         On failure, throws an exception or returns YNetwork.CALLBACKMETHOD_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.CALLBACKMETHOD_INVALID
-        return self._callbackMethod
+        res = self._callbackMethod
+        return res
 
     def set_callbackMethod(self, newval):
         """
@@ -631,15 +673,18 @@ class YNetwork(YFunction):
         YNetwork.CALLBACKENCODING_JSON_ARRAY, YNetwork.CALLBACKENCODING_CSV,
         YNetwork.CALLBACKENCODING_YOCTO_API, YNetwork.CALLBACKENCODING_JSON_NUM,
         YNetwork.CALLBACKENCODING_EMONCMS, YNetwork.CALLBACKENCODING_AZURE,
-        YNetwork.CALLBACKENCODING_INFLUXDB and YNetwork.CALLBACKENCODING_MQTT corresponding to the encoding
-        standard to use for representing notification values
+        YNetwork.CALLBACKENCODING_INFLUXDB, YNetwork.CALLBACKENCODING_MQTT and
+        YNetwork.CALLBACKENCODING_YOCTO_API_JZON corresponding to the encoding standard to use for
+        representing notification values
 
         On failure, throws an exception or returns YNetwork.CALLBACKENCODING_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.CALLBACKENCODING_INVALID
-        return self._callbackEncoding
+        res = self._callbackEncoding
+        return res
 
     def set_callbackEncoding(self, newval):
         """
@@ -649,8 +694,9 @@ class YNetwork(YFunction):
         YNetwork.CALLBACKENCODING_JSON_ARRAY, YNetwork.CALLBACKENCODING_CSV,
         YNetwork.CALLBACKENCODING_YOCTO_API, YNetwork.CALLBACKENCODING_JSON_NUM,
         YNetwork.CALLBACKENCODING_EMONCMS, YNetwork.CALLBACKENCODING_AZURE,
-        YNetwork.CALLBACKENCODING_INFLUXDB and YNetwork.CALLBACKENCODING_MQTT corresponding to the encoding
-        standard to use for representing notification values
+        YNetwork.CALLBACKENCODING_INFLUXDB, YNetwork.CALLBACKENCODING_MQTT and
+        YNetwork.CALLBACKENCODING_YOCTO_API_JZON corresponding to the encoding standard to use for
+        representing notification values
 
         @return YAPI.SUCCESS if the call succeeds.
 
@@ -669,10 +715,12 @@ class YNetwork(YFunction):
 
         On failure, throws an exception or returns YNetwork.CALLBACKCREDENTIALS_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.CALLBACKCREDENTIALS_INVALID
-        return self._callbackCredentials
+        res = self._callbackCredentials
+        return res
 
     def set_callbackCredentials(self, newval):
         """
@@ -720,10 +768,12 @@ class YNetwork(YFunction):
 
         On failure, throws an exception or returns YNetwork.CALLBACKINITIALDELAY_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.CALLBACKINITIALDELAY_INVALID
-        return self._callbackInitialDelay
+        res = self._callbackInitialDelay
+        return res
 
     def set_callbackInitialDelay(self, newval):
         """
@@ -739,25 +789,54 @@ class YNetwork(YFunction):
         rest_val = str(newval)
         return self._setAttr("callbackInitialDelay", rest_val)
 
+    def get_callbackSchedule(self):
+        """
+        Returns the HTTP callback schedule strategy, as a text string.
+
+        @return a string corresponding to the HTTP callback schedule strategy, as a text string
+
+        On failure, throws an exception or returns YNetwork.CALLBACKSCHEDULE_INVALID.
+        """
+        # res
+        if self._cacheExpiration <= YAPI.GetTickCount():
+            if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
+                return YNetwork.CALLBACKSCHEDULE_INVALID
+        res = self._callbackSchedule
+        return res
+
+    def set_callbackSchedule(self, newval):
+        """
+        Changes the HTTP callback schedule strategy, as a text string.
+
+        @param newval : a string corresponding to the HTTP callback schedule strategy, as a text string
+
+        @return YAPI.SUCCESS if the call succeeds.
+
+        On failure, throws an exception or returns a negative error code.
+        """
+        rest_val = newval
+        return self._setAttr("callbackSchedule", rest_val)
+
     def get_callbackMinDelay(self):
         """
-        Returns the minimum waiting time between two callback notifications, in seconds.
+        Returns the minimum waiting time between two HTTP callbacks, in seconds.
 
-        @return an integer corresponding to the minimum waiting time between two callback notifications, in seconds
+        @return an integer corresponding to the minimum waiting time between two HTTP callbacks, in seconds
 
         On failure, throws an exception or returns YNetwork.CALLBACKMINDELAY_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.CALLBACKMINDELAY_INVALID
-        return self._callbackMinDelay
+        res = self._callbackMinDelay
+        return res
 
     def set_callbackMinDelay(self, newval):
         """
-        Changes the minimum waiting time between two callback notifications, in seconds.
+        Changes the minimum waiting time between two HTTP callbacks, in seconds.
 
-        @param newval : an integer corresponding to the minimum waiting time between two callback
-        notifications, in seconds
+        @param newval : an integer corresponding to the minimum waiting time between two HTTP callbacks, in seconds
 
         @return YAPI.SUCCESS if the call succeeds.
 
@@ -768,23 +847,25 @@ class YNetwork(YFunction):
 
     def get_callbackMaxDelay(self):
         """
-        Returns the maximum waiting time between two callback notifications, in seconds.
+        Returns the waiting time between two HTTP callbacks when there is nothing new.
 
-        @return an integer corresponding to the maximum waiting time between two callback notifications, in seconds
+        @return an integer corresponding to the waiting time between two HTTP callbacks when there is nothing new
 
         On failure, throws an exception or returns YNetwork.CALLBACKMAXDELAY_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.CALLBACKMAXDELAY_INVALID
-        return self._callbackMaxDelay
+        res = self._callbackMaxDelay
+        return res
 
     def set_callbackMaxDelay(self, newval):
         """
-        Changes the maximum waiting time between two callback notifications, in seconds.
+        Changes the waiting time between two HTTP callbacks when there is nothing new.
 
-        @param newval : an integer corresponding to the maximum waiting time between two callback
-        notifications, in seconds
+        @param newval : an integer corresponding to the waiting time between two HTTP callbacks when there
+        is nothing new
 
         @return YAPI.SUCCESS if the call succeeds.
 
@@ -804,10 +885,12 @@ class YNetwork(YFunction):
 
         On failure, throws an exception or returns YNetwork.POECURRENT_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YNetwork.POECURRENT_INVALID
-        return self._poeCurrent
+        res = self._poeCurrent
+        return res
 
     @staticmethod
     def FindNetwork(func):
@@ -829,6 +912,10 @@ class YNetwork(YFunction):
         a network interface by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string that uniquely characterizes the network interface
 
@@ -859,6 +946,19 @@ class YNetwork(YFunction):
         """
         return self.set_ipConfig("DHCP:" + fallbackIpAddr + "/" + str(int(fallbackSubnetMaskLen)) + "/" + fallbackRouter)
 
+    def useDHCPauto(self):
+        """
+        Changes the configuration of the network interface to enable the use of an
+        IP address received from a DHCP server. Until an address is received from a DHCP
+        server, the module uses an IP of the network 169.254.0.0/16 (APIPA).
+        Remember to call the saveToFlash() method and then to reboot the module to apply this setting.
+
+        @return YAPI.SUCCESS when the call succeeds.
+
+        On failure, throws an exception or returns a negative error code.
+        """
+        return self.set_ipConfig("DHCP:")
+
     def useStaticIP(self, ipAddress, subnetMaskLen, router):
         """
         Changes the configuration of the network interface to use a static IP address.
@@ -885,7 +985,7 @@ class YNetwork(YFunction):
         @return a string with the result of the ping.
         """
         # content
-        # // may throw an exception
+
         content = self._download("ping.txt?host=" + host)
         return YByte2String(content)
 
@@ -900,9 +1000,23 @@ class YNetwork(YFunction):
 
         On failure, throws an exception or returns a negative error code.
         """
-        # // Rewrite the callback method to trigger the callback
-        # // may throw an exception
         return self.set_callbackMethod(self.get_callbackMethod())
+
+    def set_periodicCallbackSchedule(self, interval, offset):
+        """
+        Setup periodic HTTP callbacks (simplifed function).
+
+        @param interval : a string representing the callback periodicity, expressed in
+                seconds, minutes or hours, eg. "60s", "5m", "1h", "48h".
+        @param offset : an integer representing the time offset relative to the period
+                when the callback should occur. For instance, if the periodicity is
+                24h, an offset of 7 will make the callback occur each day at 7AM.
+
+        @return YAPI.SUCCESS when the call succeeds.
+
+        On failure, throws an exception or returns a negative error code.
+        """
+        return self.set_callbackSchedule("every " + interval + "+" + str(int(offset)))
 
     def nextNetwork(self):
         """
@@ -921,7 +1035,7 @@ class YNetwork(YFunction):
 
 #--- (end of YNetwork implementation)
 
-#--- (Network functions)
+#--- (YNetwork functions)
 
     @staticmethod
     def FirstNetwork():
@@ -955,4 +1069,4 @@ class YNetwork(YFunction):
 
         return YNetwork.FindNetwork(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of Network functions)
+#--- (end of YNetwork functions)

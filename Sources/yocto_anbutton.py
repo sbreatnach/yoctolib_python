@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_anbutton.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_anbutton.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindAnButton(), the high-level API for AnButton functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -96,41 +97,30 @@ class YAnButton(YFunction):
         #--- (end of YAnButton attributes)
 
     #--- (YAnButton implementation)
-    def _parseAttr(self, member):
-        if member.name == "calibratedValue":
-            self._calibratedValue = member.ivalue
-            return 1
-        if member.name == "rawValue":
-            self._rawValue = member.ivalue
-            return 1
-        if member.name == "analogCalibration":
-            self._analogCalibration = member.ivalue
-            return 1
-        if member.name == "calibrationMax":
-            self._calibrationMax = member.ivalue
-            return 1
-        if member.name == "calibrationMin":
-            self._calibrationMin = member.ivalue
-            return 1
-        if member.name == "sensitivity":
-            self._sensitivity = member.ivalue
-            return 1
-        if member.name == "isPressed":
-            self._isPressed = member.ivalue
-            return 1
-        if member.name == "lastTimePressed":
-            self._lastTimePressed = member.ivalue
-            return 1
-        if member.name == "lastTimeReleased":
-            self._lastTimeReleased = member.ivalue
-            return 1
-        if member.name == "pulseCounter":
-            self._pulseCounter = member.ivalue
-            return 1
-        if member.name == "pulseTimer":
-            self._pulseTimer = member.ivalue
-            return 1
-        super(YAnButton, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("calibratedValue"):
+            self._calibratedValue = json_val.getInt("calibratedValue")
+        if json_val.has("rawValue"):
+            self._rawValue = json_val.getInt("rawValue")
+        if json_val.has("analogCalibration"):
+            self._analogCalibration = (json_val.getInt("analogCalibration") > 0 if 1 else 0)
+        if json_val.has("calibrationMax"):
+            self._calibrationMax = json_val.getInt("calibrationMax")
+        if json_val.has("calibrationMin"):
+            self._calibrationMin = json_val.getInt("calibrationMin")
+        if json_val.has("sensitivity"):
+            self._sensitivity = json_val.getInt("sensitivity")
+        if json_val.has("isPressed"):
+            self._isPressed = (json_val.getInt("isPressed") > 0 if 1 else 0)
+        if json_val.has("lastTimePressed"):
+            self._lastTimePressed = json_val.getLong("lastTimePressed")
+        if json_val.has("lastTimeReleased"):
+            self._lastTimeReleased = json_val.getLong("lastTimeReleased")
+        if json_val.has("pulseCounter"):
+            self._pulseCounter = json_val.getLong("pulseCounter")
+        if json_val.has("pulseTimer"):
+            self._pulseTimer = json_val.getLong("pulseTimer")
+        super(YAnButton, self)._parseAttr(json_val)
 
     def get_calibratedValue(self):
         """
@@ -140,10 +130,12 @@ class YAnButton(YFunction):
 
         On failure, throws an exception or returns YAnButton.CALIBRATEDVALUE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YAnButton.CALIBRATEDVALUE_INVALID
-        return self._calibratedValue
+        res = self._calibratedValue
+        return res
 
     def get_rawValue(self):
         """
@@ -153,10 +145,12 @@ class YAnButton(YFunction):
 
         On failure, throws an exception or returns YAnButton.RAWVALUE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YAnButton.RAWVALUE_INVALID
-        return self._rawValue
+        res = self._rawValue
+        return res
 
     def get_analogCalibration(self):
         """
@@ -166,10 +160,12 @@ class YAnButton(YFunction):
 
         On failure, throws an exception or returns YAnButton.ANALOGCALIBRATION_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YAnButton.ANALOGCALIBRATION_INVALID
-        return self._analogCalibration
+        res = self._analogCalibration
+        return res
 
     def set_analogCalibration(self, newval):
         """
@@ -194,10 +190,12 @@ class YAnButton(YFunction):
 
         On failure, throws an exception or returns YAnButton.CALIBRATIONMAX_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YAnButton.CALIBRATIONMAX_INVALID
-        return self._calibrationMax
+        res = self._calibrationMax
+        return res
 
     def set_calibrationMax(self, newval):
         """
@@ -225,10 +223,12 @@ class YAnButton(YFunction):
 
         On failure, throws an exception or returns YAnButton.CALIBRATIONMIN_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YAnButton.CALIBRATIONMIN_INVALID
-        return self._calibrationMin
+        res = self._calibrationMin
+        return res
 
     def set_calibrationMin(self, newval):
         """
@@ -256,10 +256,12 @@ class YAnButton(YFunction):
 
         On failure, throws an exception or returns YAnButton.SENSITIVITY_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YAnButton.SENSITIVITY_INVALID
-        return self._sensitivity
+        res = self._sensitivity
+        return res
 
     def set_sensitivity(self, newval):
         """
@@ -289,10 +291,12 @@ class YAnButton(YFunction):
 
         On failure, throws an exception or returns YAnButton.ISPRESSED_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YAnButton.ISPRESSED_INVALID
-        return self._isPressed
+        res = self._isPressed
+        return res
 
     def get_lastTimePressed(self):
         """
@@ -305,10 +309,12 @@ class YAnButton(YFunction):
 
         On failure, throws an exception or returns YAnButton.LASTTIMEPRESSED_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YAnButton.LASTTIMEPRESSED_INVALID
-        return self._lastTimePressed
+        res = self._lastTimePressed
+        return res
 
     def get_lastTimeReleased(self):
         """
@@ -321,23 +327,29 @@ class YAnButton(YFunction):
 
         On failure, throws an exception or returns YAnButton.LASTTIMERELEASED_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YAnButton.LASTTIMERELEASED_INVALID
-        return self._lastTimeReleased
+        res = self._lastTimeReleased
+        return res
 
     def get_pulseCounter(self):
         """
-        Returns the pulse counter value.
+        Returns the pulse counter value. The value is a 32 bit integer. In case
+        of overflow (>=2^32), the counter will wrap. To reset the counter, just
+        call the resetCounter() method.
 
         @return an integer corresponding to the pulse counter value
 
         On failure, throws an exception or returns YAnButton.PULSECOUNTER_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YAnButton.PULSECOUNTER_INVALID
-        return self._pulseCounter
+        res = self._pulseCounter
+        return res
 
     def set_pulseCounter(self, newval):
         rest_val = str(newval)
@@ -351,10 +363,12 @@ class YAnButton(YFunction):
 
         On failure, throws an exception or returns YAnButton.PULSETIMER_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YAnButton.PULSETIMER_INVALID
-        return self._pulseTimer
+        res = self._pulseTimer
+        return res
 
     @staticmethod
     def FindAnButton(func):
@@ -376,6 +390,10 @@ class YAnButton(YFunction):
         an analog input by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string that uniquely characterizes the analog input
 
@@ -415,7 +433,7 @@ class YAnButton(YFunction):
 
 #--- (end of YAnButton implementation)
 
-#--- (AnButton functions)
+#--- (YAnButton functions)
 
     @staticmethod
     def FirstAnButton():
@@ -449,4 +467,4 @@ class YAnButton(YFunction):
 
         return YAnButton.FindAnButton(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of AnButton functions)
+#--- (end of YAnButton functions)

@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_wakeupmonitor.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_wakeupmonitor.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindWakeUpMonitor(), the high-level API for WakeUpMonitor functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -87,26 +88,20 @@ class YWakeUpMonitor(YFunction):
         #--- (end of YWakeUpMonitor attributes)
 
     #--- (YWakeUpMonitor implementation)
-    def _parseAttr(self, member):
-        if member.name == "powerDuration":
-            self._powerDuration = member.ivalue
-            return 1
-        if member.name == "sleepCountdown":
-            self._sleepCountdown = member.ivalue
-            return 1
-        if member.name == "nextWakeUp":
-            self._nextWakeUp = member.ivalue
-            return 1
-        if member.name == "wakeUpReason":
-            self._wakeUpReason = member.ivalue
-            return 1
-        if member.name == "wakeUpState":
-            self._wakeUpState = member.ivalue
-            return 1
-        if member.name == "rtcTime":
-            self._rtcTime = member.ivalue
-            return 1
-        super(YWakeUpMonitor, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("powerDuration"):
+            self._powerDuration = json_val.getInt("powerDuration")
+        if json_val.has("sleepCountdown"):
+            self._sleepCountdown = json_val.getInt("sleepCountdown")
+        if json_val.has("nextWakeUp"):
+            self._nextWakeUp = json_val.getLong("nextWakeUp")
+        if json_val.has("wakeUpReason"):
+            self._wakeUpReason = json_val.getInt("wakeUpReason")
+        if json_val.has("wakeUpState"):
+            self._wakeUpState = json_val.getInt("wakeUpState")
+        if json_val.has("rtcTime"):
+            self._rtcTime = json_val.getLong("rtcTime")
+        super(YWakeUpMonitor, self)._parseAttr(json_val)
 
     def get_powerDuration(self):
         """
@@ -116,10 +111,12 @@ class YWakeUpMonitor(YFunction):
 
         On failure, throws an exception or returns YWakeUpMonitor.POWERDURATION_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YWakeUpMonitor.POWERDURATION_INVALID
-        return self._powerDuration
+        res = self._powerDuration
+        return res
 
     def set_powerDuration(self, newval):
         """
@@ -143,10 +140,12 @@ class YWakeUpMonitor(YFunction):
 
         On failure, throws an exception or returns YWakeUpMonitor.SLEEPCOUNTDOWN_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YWakeUpMonitor.SLEEPCOUNTDOWN_INVALID
-        return self._sleepCountdown
+        res = self._sleepCountdown
+        return res
 
     def set_sleepCountdown(self, newval):
         """
@@ -169,10 +168,12 @@ class YWakeUpMonitor(YFunction):
 
         On failure, throws an exception or returns YWakeUpMonitor.NEXTWAKEUP_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YWakeUpMonitor.NEXTWAKEUP_INVALID
-        return self._nextWakeUp
+        res = self._nextWakeUp
+        return res
 
     def set_nextWakeUp(self, newval):
         """
@@ -198,10 +199,12 @@ class YWakeUpMonitor(YFunction):
 
         On failure, throws an exception or returns YWakeUpMonitor.WAKEUPREASON_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YWakeUpMonitor.WAKEUPREASON_INVALID
-        return self._wakeUpReason
+        res = self._wakeUpReason
+        return res
 
     def get_wakeUpState(self):
         """
@@ -212,20 +215,24 @@ class YWakeUpMonitor(YFunction):
 
         On failure, throws an exception or returns YWakeUpMonitor.WAKEUPSTATE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YWakeUpMonitor.WAKEUPSTATE_INVALID
-        return self._wakeUpState
+        res = self._wakeUpState
+        return res
 
     def set_wakeUpState(self, newval):
         rest_val = str(newval)
         return self._setAttr("wakeUpState", rest_val)
 
     def get_rtcTime(self):
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YWakeUpMonitor.RTCTIME_INVALID
-        return self._rtcTime
+        res = self._rtcTime
+        return res
 
     @staticmethod
     def FindWakeUpMonitor(func):
@@ -248,6 +255,10 @@ class YWakeUpMonitor(YFunction):
         found is returned. The search is performed first by hardware name,
         then by logical name.
 
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
+
         @param func : a string that uniquely characterizes the monitor
 
         @return a YWakeUpMonitor object allowing you to drive the monitor.
@@ -263,7 +274,6 @@ class YWakeUpMonitor(YFunction):
         """
         Forces a wake up.
         """
-        # // may throw an exception
         return self.set_wakeUpState(YWakeUpMonitor.WAKEUPSTATE_AWAKE)
 
     def sleep(self, secBeforeSleep):
@@ -355,7 +365,7 @@ class YWakeUpMonitor(YFunction):
 
 #--- (end of YWakeUpMonitor implementation)
 
-#--- (WakeUpMonitor functions)
+#--- (YWakeUpMonitor functions)
 
     @staticmethod
     def FirstWakeUpMonitor():
@@ -389,4 +399,4 @@ class YWakeUpMonitor(YFunction):
 
         return YWakeUpMonitor.FindWakeUpMonitor(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of WakeUpMonitor functions)
+#--- (end of YWakeUpMonitor functions)

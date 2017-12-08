@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_serialport.py 23780 2016-04-06 10:27:21Z seb $
+#* $Id: yocto_serialport.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindSerialPort(), the high-level API for SerialPort functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -42,7 +43,48 @@ __docformat__ = 'restructuredtext en'
 from yocto_api import *
 
 
-#--- (YSerialPort class start)
+
+# --- (generated code: YSnoopingRecord class start)
+#noinspection PyProtectedMember
+class YSnoopingRecord(object):
+#--- (end of generated code: YSnoopingRecord class start)
+    # --- (generated code: YSnoopingRecord definitions)
+    #--- (end of generated code: YSnoopingRecord definitions)
+
+    def __init__(self, json_str):
+        # --- (generated code: YSnoopingRecord attributes)
+        self._tim = 0
+        self._dir = 0
+        self._msg = ''
+        #--- (end of generated code: YSnoopingRecord attributes)
+        json = YJSONObject(json_str, 0, len(json_str))
+        json.parse()
+        self._tim = json.getInt("t")
+        m = json.getString("m")
+        if m[0] == '<':
+            self._dir = 1
+        else:
+            self._dir = 0
+        self._msg = m[1:]
+
+    # --- (generated code: YSnoopingRecord implementation)
+    def get_time(self):
+        return self._tim
+
+    def get_direction(self):
+        return self._dir
+
+    def get_message(self):
+        return self._msg
+
+#--- (end of generated code: YSnoopingRecord implementation)
+
+# --- (generated code: YSnoopingRecord functions)
+#--- (end of generated code: YSnoopingRecord functions)
+
+
+
+#--- (generated code: YSerialPort class start)
 #noinspection PyProtectedMember
 class YSerialPort(YFunction):
     """
@@ -53,12 +95,12 @@ class YSerialPort(YFunction):
     They are meant to be used in the same way as all Yoctopuce devices.
 
     """
-#--- (end of YSerialPort class start)
-    #--- (YSerialPort return codes)
-    #--- (end of YSerialPort return codes)
-    #--- (YSerialPort dlldef)
-    #--- (end of YSerialPort dlldef)
-    #--- (YSerialPort definitions)
+#--- (end of generated code: YSerialPort class start)
+    #--- (generated code: YSerialPort return codes)
+    #--- (end of generated code: YSerialPort return codes)
+    #--- (generated code: YSerialPort dlldef)
+    #--- (end of generated code: YSerialPort dlldef)
+    #--- (generated code: YSerialPort definitions)
     RXCOUNT_INVALID = YAPI.INVALID_UINT
     TXCOUNT_INVALID = YAPI.INVALID_UINT
     ERRCOUNT_INVALID = YAPI.INVALID_UINT
@@ -78,12 +120,12 @@ class YSerialPort(YFunction):
     VOLTAGELEVEL_RS232 = 5
     VOLTAGELEVEL_RS485 = 6
     VOLTAGELEVEL_INVALID = -1
-    #--- (end of YSerialPort definitions)
+    #--- (end of generated code: YSerialPort definitions)
 
     def __init__(self, func):
         super(YSerialPort, self).__init__(func)
         self._className = 'SerialPort'
-        #--- (YSerialPort attributes)
+        #--- (generated code: YSerialPort attributes)
         self._callback = None
         self._rxCount = YSerialPort.RXCOUNT_INVALID
         self._txCount = YSerialPort.TXCOUNT_INVALID
@@ -98,47 +140,37 @@ class YSerialPort(YFunction):
         self._protocol = YSerialPort.PROTOCOL_INVALID
         self._serialMode = YSerialPort.SERIALMODE_INVALID
         self._rxptr = 0
-        #--- (end of YSerialPort attributes)
+        self._rxbuff = ''
+        self._rxbuffptr = 0
+        #--- (end of generated code: YSerialPort attributes)
 
-    #--- (YSerialPort implementation)
-    def _parseAttr(self, member):
-        if member.name == "rxCount":
-            self._rxCount = member.ivalue
-            return 1
-        if member.name == "txCount":
-            self._txCount = member.ivalue
-            return 1
-        if member.name == "errCount":
-            self._errCount = member.ivalue
-            return 1
-        if member.name == "rxMsgCount":
-            self._rxMsgCount = member.ivalue
-            return 1
-        if member.name == "txMsgCount":
-            self._txMsgCount = member.ivalue
-            return 1
-        if member.name == "lastMsg":
-            self._lastMsg = member.svalue
-            return 1
-        if member.name == "currentJob":
-            self._currentJob = member.svalue
-            return 1
-        if member.name == "startupJob":
-            self._startupJob = member.svalue
-            return 1
-        if member.name == "command":
-            self._command = member.svalue
-            return 1
-        if member.name == "voltageLevel":
-            self._voltageLevel = member.ivalue
-            return 1
-        if member.name == "protocol":
-            self._protocol = member.svalue
-            return 1
-        if member.name == "serialMode":
-            self._serialMode = member.svalue
-            return 1
-        super(YSerialPort, self)._parseAttr(member)
+    #--- (generated code: YSerialPort implementation)
+    def _parseAttr(self, json_val):
+        if json_val.has("rxCount"):
+            self._rxCount = json_val.getInt("rxCount")
+        if json_val.has("txCount"):
+            self._txCount = json_val.getInt("txCount")
+        if json_val.has("errCount"):
+            self._errCount = json_val.getInt("errCount")
+        if json_val.has("rxMsgCount"):
+            self._rxMsgCount = json_val.getInt("rxMsgCount")
+        if json_val.has("txMsgCount"):
+            self._txMsgCount = json_val.getInt("txMsgCount")
+        if json_val.has("lastMsg"):
+            self._lastMsg = json_val.getString("lastMsg")
+        if json_val.has("currentJob"):
+            self._currentJob = json_val.getString("currentJob")
+        if json_val.has("startupJob"):
+            self._startupJob = json_val.getString("startupJob")
+        if json_val.has("command"):
+            self._command = json_val.getString("command")
+        if json_val.has("voltageLevel"):
+            self._voltageLevel = json_val.getInt("voltageLevel")
+        if json_val.has("protocol"):
+            self._protocol = json_val.getString("protocol")
+        if json_val.has("serialMode"):
+            self._serialMode = json_val.getString("serialMode")
+        super(YSerialPort, self)._parseAttr(json_val)
 
     def get_rxCount(self):
         """
@@ -148,10 +180,12 @@ class YSerialPort(YFunction):
 
         On failure, throws an exception or returns YSerialPort.RXCOUNT_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSerialPort.RXCOUNT_INVALID
-        return self._rxCount
+        res = self._rxCount
+        return res
 
     def get_txCount(self):
         """
@@ -161,10 +195,12 @@ class YSerialPort(YFunction):
 
         On failure, throws an exception or returns YSerialPort.TXCOUNT_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSerialPort.TXCOUNT_INVALID
-        return self._txCount
+        res = self._txCount
+        return res
 
     def get_errCount(self):
         """
@@ -174,10 +210,12 @@ class YSerialPort(YFunction):
 
         On failure, throws an exception or returns YSerialPort.ERRCOUNT_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSerialPort.ERRCOUNT_INVALID
-        return self._errCount
+        res = self._errCount
+        return res
 
     def get_rxMsgCount(self):
         """
@@ -187,10 +225,12 @@ class YSerialPort(YFunction):
 
         On failure, throws an exception or returns YSerialPort.RXMSGCOUNT_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSerialPort.RXMSGCOUNT_INVALID
-        return self._rxMsgCount
+        res = self._rxMsgCount
+        return res
 
     def get_txMsgCount(self):
         """
@@ -200,10 +240,12 @@ class YSerialPort(YFunction):
 
         On failure, throws an exception or returns YSerialPort.TXMSGCOUNT_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSerialPort.TXMSGCOUNT_INVALID
-        return self._txMsgCount
+        res = self._txMsgCount
+        return res
 
     def get_lastMsg(self):
         """
@@ -213,10 +255,12 @@ class YSerialPort(YFunction):
 
         On failure, throws an exception or returns YSerialPort.LASTMSG_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSerialPort.LASTMSG_INVALID
-        return self._lastMsg
+        res = self._lastMsg
+        return res
 
     def get_currentJob(self):
         """
@@ -226,10 +270,12 @@ class YSerialPort(YFunction):
 
         On failure, throws an exception or returns YSerialPort.CURRENTJOB_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSerialPort.CURRENTJOB_INVALID
-        return self._currentJob
+        res = self._currentJob
+        return res
 
     def set_currentJob(self, newval):
         """
@@ -254,10 +300,12 @@ class YSerialPort(YFunction):
 
         On failure, throws an exception or returns YSerialPort.STARTUPJOB_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSerialPort.STARTUPJOB_INVALID
-        return self._startupJob
+        res = self._startupJob
+        return res
 
     def set_startupJob(self, newval):
         """
@@ -275,10 +323,12 @@ class YSerialPort(YFunction):
         return self._setAttr("startupJob", rest_val)
 
     def get_command(self):
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSerialPort.COMMAND_INVALID
-        return self._command
+        res = self._command
+        return res
 
     def set_command(self, newval):
         rest_val = newval
@@ -295,10 +345,12 @@ class YSerialPort(YFunction):
 
         On failure, throws an exception or returns YSerialPort.VOLTAGELEVEL_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSerialPort.VOLTAGELEVEL_INVALID
-        return self._voltageLevel
+        res = self._voltageLevel
+        return res
 
     def set_voltageLevel(self, newval):
         """
@@ -327,6 +379,8 @@ class YSerialPort(YFunction):
         "Frame:[timeout]ms" for binary messages separated by a delay time,
         "Modbus-ASCII" for MODBUS messages in ASCII mode,
         "Modbus-RTU" for MODBUS messages in RTU mode,
+        "Wiegand-ASCII" for Wiegand messages in ASCII mode,
+        "Wiegand-26","Wiegand-34", etc for Wiegand messages in byte mode,
         "Char" for a continuous ASCII stream or
         "Byte" for a continuous binary stream.
 
@@ -334,10 +388,12 @@ class YSerialPort(YFunction):
 
         On failure, throws an exception or returns YSerialPort.PROTOCOL_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSerialPort.PROTOCOL_INVALID
-        return self._protocol
+        res = self._protocol
+        return res
 
     def set_protocol(self, newval):
         """
@@ -346,6 +402,8 @@ class YSerialPort(YFunction):
         "Frame:[timeout]ms" for binary messages separated by a delay time,
         "Modbus-ASCII" for MODBUS messages in ASCII mode,
         "Modbus-RTU" for MODBUS messages in RTU mode,
+        "Wiegand-ASCII" for Wiegand messages in ASCII mode,
+        "Wiegand-26","Wiegand-34", etc for Wiegand messages in byte mode,
         "Char" for a continuous ASCII stream or
         "Byte" for a continuous binary stream.
         The suffix "/[wait]ms" can be added to reduce the transmit rate so that there
@@ -374,10 +432,12 @@ class YSerialPort(YFunction):
 
         On failure, throws an exception or returns YSerialPort.SERIALMODE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YSerialPort.SERIALMODE_INVALID
-        return self._serialMode
+        res = self._serialMode
+        return res
 
     def set_serialMode(self, newval):
         """
@@ -419,6 +479,10 @@ class YSerialPort(YFunction):
         found is returned. The search is performed first by hardware name,
         then by logical name.
 
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
+
         @param func : a string that uniquely characterizes the serial port
 
         @return a YSerialPort object allowing you to drive the serial port.
@@ -431,7 +495,6 @@ class YSerialPort(YFunction):
         return obj
 
     def sendCommand(self, text):
-        # // may throw an exception
         return self.set_command(text)
 
     def reset(self):
@@ -443,7 +506,9 @@ class YSerialPort(YFunction):
         On failure, throws an exception or returns a negative error code.
         """
         self._rxptr = 0
-        # // may throw an exception
+        self._rxbuffptr = 0
+        self._rxbuff = bytearray(0)
+
         return self.sendCommand("Z")
 
     def writeByte(self, code):
@@ -456,7 +521,6 @@ class YSerialPort(YFunction):
 
         On failure, throws an exception or returns a negative error code.
         """
-        # // may throw an exception
         return self.sendCommand("$" + ("%02X" % code))
 
     def writeStr(self, text):
@@ -476,7 +540,7 @@ class YSerialPort(YFunction):
         buff = YString2Byte(text)
         bufflen = len(buff)
         if bufflen < 100:
-            #
+            # // if string is pure text, we can send it as a simple command (faster)
             ch = 0x20
             idx = 0
             while (idx < bufflen) and (ch != 0):
@@ -486,7 +550,6 @@ class YSerialPort(YFunction):
                 else:
                     ch = 0
             if idx >= bufflen:
-                #
                 return self.sendCommand("+" + text)
         # // send string using file upload
         return self._upload("txdata", buff)
@@ -501,7 +564,6 @@ class YSerialPort(YFunction):
 
         On failure, throws an exception or returns a negative error code.
         """
-        # // may throw an exception
         return self._upload("txdata", buff)
 
     def writeArray(self, byteList):
@@ -526,7 +588,7 @@ class YSerialPort(YFunction):
             hexb = byteList[idx]
             buff[idx] = hexb
             idx = idx + 1
-        # // may throw an exception
+
         res = self._upload("txdata", buff)
         return res
 
@@ -547,7 +609,6 @@ class YSerialPort(YFunction):
         # res
         bufflen = len(hexString)
         if bufflen < 100:
-            #
             return self.sendCommand("$" + hexString)
         bufflen = ((bufflen) >> (1))
         buff = bytearray(bufflen)
@@ -556,7 +617,7 @@ class YSerialPort(YFunction):
             hexb = int((hexString)[2 * idx: 2 * idx + 2], 16)
             buff[idx] = hexb
             idx = idx + 1
-        # // may throw an exception
+
         res = self._upload("txdata", buff)
         return res
 
@@ -577,7 +638,7 @@ class YSerialPort(YFunction):
         buff = YString2Byte("" + text + "\r\n")
         bufflen = len(buff)-2
         if bufflen < 100:
-            #
+            # // if string is pure text, we can send it as a simple command (faster)
             ch = 0x20
             idx = 0
             while (idx < bufflen) and (ch != 0):
@@ -587,7 +648,6 @@ class YSerialPort(YFunction):
                 else:
                     ch = 0
             if idx >= bufflen:
-                #
                 return self.sendCommand("!" + text)
         # // send string using file upload
         return self._upload("txdata", buff)
@@ -602,12 +662,44 @@ class YSerialPort(YFunction):
 
         On failure, throws an exception or returns a negative error code.
         """
+        # currpos
+        # reqlen
         # buff
         # bufflen
         # mult
         # endpos
         # res
-        # // may throw an exception
+        # // first check if we have the requested character in the look-ahead buffer
+        bufflen = len(self._rxbuff)
+        if (self._rxptr >= self._rxbuffptr) and (self._rxptr < self._rxbuffptr+bufflen):
+            res = YGetByte(self._rxbuff, self._rxptr-self._rxbuffptr)
+            self._rxptr = self._rxptr + 1
+            return res
+        # // try to preload more than one byte to speed-up byte-per-byte access
+        currpos = self._rxptr
+        reqlen = 1024
+        buff = self.readBin(reqlen)
+        bufflen = len(buff)
+        if self._rxptr == currpos+bufflen:
+            res = YGetByte(buff, 0)
+            self._rxptr = currpos+1
+            self._rxbuffptr = currpos
+            self._rxbuff = buff
+            return res
+        # // mixed bidirectional data, retry with a smaller block
+        self._rxptr = currpos
+        reqlen = 16
+        buff = self.readBin(reqlen)
+        bufflen = len(buff)
+        if self._rxptr == currpos+bufflen:
+            res = YGetByte(buff, 0)
+            self._rxptr = currpos+1
+            self._rxbuffptr = currpos
+            self._rxbuff = buff
+            return res
+        # // still mixed, need to process character by character
+        self._rxptr = currpos
+
         buff = self._download("rxdata.bin?pos=" + str(int(self._rxptr)) + "&len=1")
         bufflen = len(buff) - 1
         endpos = 0
@@ -641,7 +733,7 @@ class YSerialPort(YFunction):
         # res
         if nChars > 65535:
             nChars = 65535
-        # // may throw an exception
+
         buff = self._download("rxdata.bin?pos=" + str(int(self._rxptr)) + "&len=" + str(int(nChars)))
         bufflen = len(buff) - 1
         endpos = 0
@@ -674,7 +766,7 @@ class YSerialPort(YFunction):
         # res
         if nChars > 65535:
             nChars = 65535
-        # // may throw an exception
+
         buff = self._download("rxdata.bin?pos=" + str(int(self._rxptr)) + "&len=" + str(int(nChars)))
         bufflen = len(buff) - 1
         endpos = 0
@@ -712,7 +804,7 @@ class YSerialPort(YFunction):
         res = []
         if nChars > 65535:
             nChars = 65535
-        # // may throw an exception
+
         buff = self._download("rxdata.bin?pos=" + str(int(self._rxptr)) + "&len=" + str(int(nChars)))
         bufflen = len(buff) - 1
         endpos = 0
@@ -728,7 +820,7 @@ class YSerialPort(YFunction):
             b = YGetByte(buff, idx)
             res.append(b)
             idx = idx + 1
-        
+
         return res
 
     def readHex(self, nBytes):
@@ -751,7 +843,7 @@ class YSerialPort(YFunction):
         # res
         if nBytes > 65535:
             nBytes = 65535
-        # // may throw an exception
+
         buff = self._download("rxdata.bin?pos=" + str(int(self._rxptr)) + "&len=" + str(int(nBytes)))
         bufflen = len(buff) - 1
         endpos = 0
@@ -790,7 +882,7 @@ class YSerialPort(YFunction):
         msgarr = []
         # msglen
         # res
-        # // may throw an exception
+
         url = "rxmsg.json?pos=" + str(int(self._rxptr)) + "&len=1&maxw=1"
         msgbin = self._download(url)
         msgarr = self._json_get_array(msgbin)
@@ -833,7 +925,7 @@ class YSerialPort(YFunction):
         # msglen
         res = []
         # idx
-        # // may throw an exception
+
         url = "rxmsg.json?pos=" + str(int(self._rxptr)) + "&maxw=" + str(int(maxWait)) + "&pat=" + pattern
         msgbin = self._download(url)
         msgarr = self._json_get_array(msgbin)
@@ -844,11 +936,11 @@ class YSerialPort(YFunction):
         msglen = msglen - 1
         self._rxptr = YAPI._atoi(msgarr[msglen])
         idx = 0
-        
+
         while idx < msglen:
             res.append(self._json_get_string(YString2Byte(msgarr[idx])))
             idx = idx + 1
-        
+
         return res
 
     def read_seek(self, absPos):
@@ -882,7 +974,7 @@ class YSerialPort(YFunction):
         # buff
         # bufflen
         # res
-        # // may throw an exception
+
         buff = self._download("rxcnt.bin?pos=" + str(int(self._rxptr)))
         bufflen = len(buff) - 1
         while (bufflen > 0) and (YGetByte(buff, bufflen) != 64):
@@ -908,7 +1000,7 @@ class YSerialPort(YFunction):
         msgarr = []
         # msglen
         # res
-        # // may throw an exception
+
         url = "rxmsg.json?len=1&maxw=" + str(int(maxWait)) + "&cmd=!" + query
         msgbin = self._download(url)
         msgarr = self._json_get_array(msgbin)
@@ -950,7 +1042,6 @@ class YSerialPort(YFunction):
 
         On failure, throws an exception or returns a negative error code.
         """
-        # // may throw an exception
         return self.set_currentJob(jobfile)
 
     def set_RTS(self, val):
@@ -964,7 +1055,6 @@ class YSerialPort(YFunction):
 
         On failure, throws an exception or returns a negative error code.
         """
-        # // may throw an exception
         return self.sendCommand("R" + str(int(val)))
 
     def get_CTS(self):
@@ -978,11 +1068,52 @@ class YSerialPort(YFunction):
         """
         # buff
         # res
-        # // may throw an exception
+
         buff = self._download("cts.txt")
         if not (len(buff) == 1):
             self._throw(YAPI.IO_ERROR, "invalid CTS reply")
         res = YGetByte(buff, 0) - 48
+        return res
+
+    def snoopMessages(self, maxWait):
+        """
+        Retrieves messages (both direction) in the serial port buffer, starting at current position.
+        This function will only compare and return printable characters in the message strings.
+        Binary protocols are handled as hexadecimal strings.
+
+        If no message is found, the search waits for one up to the specified maximum timeout
+        (in milliseconds).
+
+        @param maxWait : the maximum number of milliseconds to wait for a message if none is found
+                in the receive buffer.
+
+        @return an array of YSnoopingRecord objects containing the messages found, if any.
+                Binary messages are converted to hexadecimal representation.
+
+        On failure, throws an exception or returns an empty array.
+        """
+        # url
+        # msgbin
+        msgarr = []
+        # msglen
+        res = []
+        # idx
+
+        url = "rxmsg.json?pos=" + str(int(self._rxptr)) + "&maxw=" + str(int(maxWait)) + "&t=0"
+        msgbin = self._download(url)
+        msgarr = self._json_get_array(msgbin)
+        msglen = len(msgarr)
+        if msglen == 0:
+            return res
+        # // last element of array is the new position
+        msglen = msglen - 1
+        self._rxptr = YAPI._atoi(msgarr[msglen])
+        idx = 0
+
+        while idx < msglen:
+            res.append(YSnoopingRecord(msgarr[idx]))
+            idx = idx + 1
+
         return res
 
     def writeMODBUS(self, hexString):
@@ -997,7 +1128,6 @@ class YSerialPort(YFunction):
 
         On failure, throws an exception or returns a negative error code.
         """
-        # // may throw an exception
         return self.sendCommand(":" + hexString)
 
     def queryMODBUS(self, slaveNo, pduBytes):
@@ -1033,7 +1163,7 @@ class YSerialPort(YFunction):
         while i < len(pduBytes):
             cmd = "" + cmd + "" + ("%02X" % ((pduBytes[i]) & (0xff)))
             i = i + 1
-        # // may throw an exception
+
         url = "rxmsg.json?cmd=:" + cmd + "&pat=:" + pat
         msgs = self._download(url)
         reps = self._json_get_array(msgs)
@@ -1079,20 +1209,20 @@ class YSerialPort(YFunction):
         # idx
         # val
         # mask
-        
+
         pdu.append(0x01)
         pdu.append(((pduAddr) >> (8)))
         pdu.append(((pduAddr) & (0xff)))
         pdu.append(((nBits) >> (8)))
         pdu.append(((nBits) & (0xff)))
-        
-        # // may throw an exception
+
+
         reply = self.queryMODBUS(slaveNo, pdu)
         if len(reply) == 0:
             return res
         if reply[0] != pdu[0]:
             return res
-        
+
         bitpos = 0
         idx = 2
         val = reply[idx]
@@ -1109,7 +1239,7 @@ class YSerialPort(YFunction):
                 mask = 1
             else:
                 mask = ((mask) << (1))
-        
+
         return res
 
     def modbusReadInputBits(self, slaveNo, pduAddr, nBits):
@@ -1132,20 +1262,20 @@ class YSerialPort(YFunction):
         # idx
         # val
         # mask
-        
+
         pdu.append(0x02)
         pdu.append(((pduAddr) >> (8)))
         pdu.append(((pduAddr) & (0xff)))
         pdu.append(((nBits) >> (8)))
         pdu.append(((nBits) & (0xff)))
-        
-        # // may throw an exception
+
+
         reply = self.queryMODBUS(slaveNo, pdu)
         if len(reply) == 0:
             return res
         if reply[0] != pdu[0]:
             return res
-        
+
         bitpos = 0
         idx = 2
         val = reply[idx]
@@ -1162,7 +1292,7 @@ class YSerialPort(YFunction):
                 mask = 1
             else:
                 mask = ((mask) << (1))
-        
+
         return res
 
     def modbusReadRegisters(self, slaveNo, pduAddr, nWords):
@@ -1184,20 +1314,20 @@ class YSerialPort(YFunction):
         # regpos
         # idx
         # val
-        
+
         pdu.append(0x03)
         pdu.append(((pduAddr) >> (8)))
         pdu.append(((pduAddr) & (0xff)))
         pdu.append(((nWords) >> (8)))
         pdu.append(((nWords) & (0xff)))
-        
-        # // may throw an exception
+
+
         reply = self.queryMODBUS(slaveNo, pdu)
         if len(reply) == 0:
             return res
         if reply[0] != pdu[0]:
             return res
-        
+
         regpos = 0
         idx = 2
         while regpos < nWords:
@@ -1207,7 +1337,7 @@ class YSerialPort(YFunction):
             idx = idx + 1
             res.append(val)
             regpos = regpos + 1
-        
+
         return res
 
     def modbusReadInputRegisters(self, slaveNo, pduAddr, nWords):
@@ -1229,20 +1359,20 @@ class YSerialPort(YFunction):
         # regpos
         # idx
         # val
-        
+
         pdu.append(0x04)
         pdu.append(((pduAddr) >> (8)))
         pdu.append(((pduAddr) & (0xff)))
         pdu.append(((nWords) >> (8)))
         pdu.append(((nWords) & (0xff)))
-        
-        # // may throw an exception
+
+
         reply = self.queryMODBUS(slaveNo, pdu)
         if len(reply) == 0:
             return res
         if reply[0] != pdu[0]:
             return res
-        
+
         regpos = 0
         idx = 2
         while regpos < nWords:
@@ -1252,7 +1382,7 @@ class YSerialPort(YFunction):
             idx = idx + 1
             res.append(val)
             regpos = regpos + 1
-        
+
         return res
 
     def modbusWriteBit(self, slaveNo, pduAddr, value):
@@ -1274,14 +1404,14 @@ class YSerialPort(YFunction):
         res = 0
         if value != 0:
             value = 0xff
-        
+
         pdu.append(0x05)
         pdu.append(((pduAddr) >> (8)))
         pdu.append(((pduAddr) & (0xff)))
         pdu.append(value)
         pdu.append(0x00)
-        
-        # // may throw an exception
+
+
         reply = self.queryMODBUS(slaveNo, pdu)
         if len(reply) == 0:
             return res
@@ -1314,7 +1444,7 @@ class YSerialPort(YFunction):
         res = 0
         nBits = len(bits)
         nBytes = (((nBits + 7)) >> (3))
-        
+
         pdu.append(0x0f)
         pdu.append(((pduAddr) >> (8)))
         pdu.append(((pduAddr) & (0xff)))
@@ -1336,8 +1466,8 @@ class YSerialPort(YFunction):
                 mask = ((mask) << (1))
         if mask != 1:
             pdu.append(val)
-        
-        # // may throw an exception
+
+
         reply = self.queryMODBUS(slaveNo, pdu)
         if len(reply) == 0:
             return res
@@ -1364,16 +1494,14 @@ class YSerialPort(YFunction):
         reply = []
         # res
         res = 0
-        if value != 0:
-            value = 0xff
-        
+
         pdu.append(0x06)
         pdu.append(((pduAddr) >> (8)))
         pdu.append(((pduAddr) & (0xff)))
         pdu.append(((value) >> (8)))
         pdu.append(((value) & (0xff)))
-        
-        # // may throw an exception
+
+
         reply = self.queryMODBUS(slaveNo, pdu)
         if len(reply) == 0:
             return res
@@ -1405,7 +1533,7 @@ class YSerialPort(YFunction):
         res = 0
         nWords = len(values)
         nBytes = 2 * nWords
-        
+
         pdu.append(0x10)
         pdu.append(((pduAddr) >> (8)))
         pdu.append(((pduAddr) & (0xff)))
@@ -1418,8 +1546,8 @@ class YSerialPort(YFunction):
             pdu.append(((val) >> (8)))
             pdu.append(((val) & (0xff)))
             regpos = regpos + 1
-        
-        # // may throw an exception
+
+
         reply = self.queryMODBUS(slaveNo, pdu)
         if len(reply) == 0:
             return res
@@ -1455,7 +1583,7 @@ class YSerialPort(YFunction):
         res = []
         nWriteWords = len(values)
         nBytes = 2 * nWriteWords
-        
+
         pdu.append(0x17)
         pdu.append(((pduReadAddr) >> (8)))
         pdu.append(((pduReadAddr) & (0xff)))
@@ -1472,14 +1600,14 @@ class YSerialPort(YFunction):
             pdu.append(((val) >> (8)))
             pdu.append(((val) & (0xff)))
             regpos = regpos + 1
-        
-        # // may throw an exception
+
+
         reply = self.queryMODBUS(slaveNo, pdu)
         if len(reply) == 0:
             return res
         if reply[0] != pdu[0]:
             return res
-        
+
         regpos = 0
         idx = 2
         while regpos < nReadWords:
@@ -1489,7 +1617,7 @@ class YSerialPort(YFunction):
             idx = idx + 1
             res.append(val)
             regpos = regpos + 1
-        
+
         return res
 
     def nextSerialPort(self):
@@ -1507,9 +1635,9 @@ class YSerialPort(YFunction):
             return None
         return YSerialPort.FindSerialPort(hwidRef.value)
 
-#--- (end of YSerialPort implementation)
+#--- (end of generated code: YSerialPort implementation)
 
-#--- (SerialPort functions)
+#--- (generated code: YSerialPort functions)
 
     @staticmethod
     def FirstSerialPort():
@@ -1543,4 +1671,4 @@ class YSerialPort(YFunction):
 
         return YSerialPort.FindSerialPort(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of SerialPort functions)
+#--- (end of generated code: YSerialPort functions)

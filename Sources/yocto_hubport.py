@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_hubport.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_hubport.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindHubPort(), the high-level API for HubPort functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -81,17 +82,14 @@ class YHubPort(YFunction):
         #--- (end of YHubPort attributes)
 
     #--- (YHubPort implementation)
-    def _parseAttr(self, member):
-        if member.name == "enabled":
-            self._enabled = member.ivalue
-            return 1
-        if member.name == "portState":
-            self._portState = member.ivalue
-            return 1
-        if member.name == "baudRate":
-            self._baudRate = member.ivalue
-            return 1
-        super(YHubPort, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("enabled"):
+            self._enabled = (json_val.getInt("enabled") > 0 if 1 else 0)
+        if json_val.has("portState"):
+            self._portState = json_val.getInt("portState")
+        if json_val.has("baudRate"):
+            self._baudRate = json_val.getInt("baudRate")
+        super(YHubPort, self)._parseAttr(json_val)
 
     def get_enabled(self):
         """
@@ -102,10 +100,12 @@ class YHubPort(YFunction):
 
         On failure, throws an exception or returns YHubPort.ENABLED_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YHubPort.ENABLED_INVALID
-        return self._enabled
+        res = self._enabled
+        return res
 
     def set_enabled(self, newval):
         """
@@ -131,10 +131,12 @@ class YHubPort(YFunction):
 
         On failure, throws an exception or returns YHubPort.PORTSTATE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YHubPort.PORTSTATE_INVALID
-        return self._portState
+        res = self._portState
+        return res
 
     def get_baudRate(self):
         """
@@ -146,10 +148,12 @@ class YHubPort(YFunction):
 
         On failure, throws an exception or returns YHubPort.BAUDRATE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YHubPort.BAUDRATE_INVALID
-        return self._baudRate
+        res = self._baudRate
+        return res
 
     @staticmethod
     def FindHubPort(func):
@@ -171,6 +175,10 @@ class YHubPort(YFunction):
         a Yocto-hub port by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string that uniquely characterizes the Yocto-hub port
 
@@ -200,7 +208,7 @@ class YHubPort(YFunction):
 
 #--- (end of YHubPort implementation)
 
-#--- (HubPort functions)
+#--- (YHubPort functions)
 
     @staticmethod
     def FirstHubPort():
@@ -234,4 +242,4 @@ class YHubPort(YFunction):
 
         return YHubPort.FindHubPort(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of HubPort functions)
+#--- (end of YHubPort functions)

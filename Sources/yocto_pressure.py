@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_pressure.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_pressure.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindPressure(), the high-level API for Pressure functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -48,7 +49,7 @@ class YPressure(YSensor):
     """
     The Yoctopuce class YPressure allows you to read and configure Yoctopuce pressure
     sensors. It inherits from YSensor class the core functions to read measurements,
-    register callback functions, access to the autonomous datalogger.
+    to register callback functions, to access the autonomous datalogger.
 
     """
 #--- (end of YPressure class start)
@@ -67,8 +68,8 @@ class YPressure(YSensor):
         #--- (end of YPressure attributes)
 
     #--- (YPressure implementation)
-    def _parseAttr(self, member):
-        super(YPressure, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        super(YPressure, self)._parseAttr(json_val)
 
     @staticmethod
     def FindPressure(func):
@@ -90,6 +91,10 @@ class YPressure(YSensor):
         a pressure sensor by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string that uniquely characterizes the pressure sensor
 
@@ -119,7 +124,7 @@ class YPressure(YSensor):
 
 #--- (end of YPressure implementation)
 
-#--- (Pressure functions)
+#--- (YPressure functions)
 
     @staticmethod
     def FirstPressure():
@@ -153,4 +158,4 @@ class YPressure(YSensor):
 
         return YPressure.FindPressure(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of Pressure functions)
+#--- (end of YPressure functions)

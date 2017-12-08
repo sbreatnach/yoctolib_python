@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_carbondioxide.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_carbondioxide.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindCarbonDioxide(), the high-level API for CarbonDioxide functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -48,7 +49,7 @@ class YCarbonDioxide(YSensor):
     """
     The Yoctopuce class YCarbonDioxide allows you to read and configure Yoctopuce CO2
     sensors. It inherits from YSensor class the core functions to read measurements,
-    register callback functions, access to the autonomous datalogger.
+    to register callback functions,  to access the autonomous datalogger.
     This class adds the ability to perform manual calibration if reuired.
 
     """
@@ -72,14 +73,12 @@ class YCarbonDioxide(YSensor):
         #--- (end of YCarbonDioxide attributes)
 
     #--- (YCarbonDioxide implementation)
-    def _parseAttr(self, member):
-        if member.name == "abcPeriod":
-            self._abcPeriod = member.ivalue
-            return 1
-        if member.name == "command":
-            self._command = member.svalue
-            return 1
-        super(YCarbonDioxide, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("abcPeriod"):
+            self._abcPeriod = json_val.getInt("abcPeriod")
+        if json_val.has("command"):
+            self._command = json_val.getString("command")
+        super(YCarbonDioxide, self)._parseAttr(json_val)
 
     def get_abcPeriod(self):
         """
@@ -90,20 +89,22 @@ class YCarbonDioxide(YSensor):
 
         On failure, throws an exception or returns YCarbonDioxide.ABCPERIOD_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YCarbonDioxide.ABCPERIOD_INVALID
-        return self._abcPeriod
+        res = self._abcPeriod
+        return res
 
     def set_abcPeriod(self, newval):
         """
-        Modifies Automatic Baseline Calibration period, in hours. If you need
+        Changes Automatic Baseline Calibration period, in hours. If you need
         to disable automatic baseline calibration (for instance when using the
         sensor in an environment that is constantly above 400ppm CO2), set the
         period to -1. Remember to call the saveToFlash() method of the
         module if the modification must be kept.
 
-        @param newval : an integer
+        @param newval : an integer corresponding to Automatic Baseline Calibration period, in hours
 
         @return YAPI.SUCCESS if the call succeeds.
 
@@ -113,10 +114,12 @@ class YCarbonDioxide(YSensor):
         return self._setAttr("abcPeriod", rest_val)
 
     def get_command(self):
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YCarbonDioxide.COMMAND_INVALID
-        return self._command
+        res = self._command
+        return res
 
     def set_command(self, newval):
         rest_val = newval
@@ -143,6 +146,10 @@ class YCarbonDioxide(YSensor):
         found is returned. The search is performed first by hardware name,
         then by logical name.
 
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
+
         @param func : a string that uniquely characterizes the CO2 sensor
 
         @return a YCarbonDioxide object allowing you to drive the CO2 sensor.
@@ -154,7 +161,7 @@ class YCarbonDioxide(YSensor):
             YFunction._AddToCache("CarbonDioxide", func, obj)
         return obj
 
-    def triggetBaselineCalibration(self):
+    def triggerBaselineCalibration(self):
         """
         Triggers a baseline calibration at standard CO2 ambiant level (400ppm).
         It is normally not necessary to manually calibrate the sensor, because
@@ -171,7 +178,10 @@ class YCarbonDioxide(YSensor):
         """
         return self.set_command("BC")
 
-    def triggetZeroCalibration(self):
+    def triggetBaselineCalibration(self):
+        return self.triggerBaselineCalibration()
+
+    def triggerZeroCalibration(self):
         """
         Triggers a zero calibration of the sensor on carbon dioxide-free air.
         It is normally not necessary to manually calibrate the sensor, because
@@ -190,6 +200,9 @@ class YCarbonDioxide(YSensor):
         """
         return self.set_command("ZC")
 
+    def triggetZeroCalibration(self):
+        return self.triggerZeroCalibration()
+
     def nextCarbonDioxide(self):
         """
         Continues the enumeration of CO2 sensors started using yFirstCarbonDioxide().
@@ -207,7 +220,7 @@ class YCarbonDioxide(YSensor):
 
 #--- (end of YCarbonDioxide implementation)
 
-#--- (CarbonDioxide functions)
+#--- (YCarbonDioxide functions)
 
     @staticmethod
     def FirstCarbonDioxide():
@@ -241,4 +254,4 @@ class YCarbonDioxide(YSensor):
 
         return YCarbonDioxide.FindCarbonDioxide(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of CarbonDioxide functions)
+#--- (end of YCarbonDioxide functions)

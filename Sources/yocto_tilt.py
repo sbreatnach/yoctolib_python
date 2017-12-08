@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_tilt.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_tilt.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindTilt(), the high-level API for Tilt functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -63,6 +64,7 @@ class YTilt(YSensor):
     #--- (YTilt dlldef)
     #--- (end of YTilt dlldef)
     #--- (YTilt definitions)
+    BANDWIDTH_INVALID = YAPI.INVALID_INT
     AXIS_X = 0
     AXIS_Y = 1
     AXIS_Z = 2
@@ -74,21 +76,54 @@ class YTilt(YSensor):
         self._className = 'Tilt'
         #--- (YTilt attributes)
         self._callback = None
+        self._bandwidth = YTilt.BANDWIDTH_INVALID
         self._axis = YTilt.AXIS_INVALID
         #--- (end of YTilt attributes)
 
     #--- (YTilt implementation)
-    def _parseAttr(self, member):
-        if member.name == "axis":
-            self._axis = member.ivalue
-            return 1
-        super(YTilt, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("bandwidth"):
+            self._bandwidth = json_val.getInt("bandwidth")
+        if json_val.has("axis"):
+            self._axis = json_val.getInt("axis")
+        super(YTilt, self)._parseAttr(json_val)
+
+    def get_bandwidth(self):
+        """
+        Returns the measure update frequency, measured in Hz (Yocto-3D-V2 only).
+
+        @return an integer corresponding to the measure update frequency, measured in Hz (Yocto-3D-V2 only)
+
+        On failure, throws an exception or returns YTilt.BANDWIDTH_INVALID.
+        """
+        # res
+        if self._cacheExpiration <= YAPI.GetTickCount():
+            if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
+                return YTilt.BANDWIDTH_INVALID
+        res = self._bandwidth
+        return res
+
+    def set_bandwidth(self, newval):
+        """
+        Changes the measure update frequency, measured in Hz (Yocto-3D-V2 only). When the
+        frequency is lower, the device performs averaging.
+
+        @param newval : an integer corresponding to the measure update frequency, measured in Hz (Yocto-3D-V2 only)
+
+        @return YAPI.SUCCESS if the call succeeds.
+
+        On failure, throws an exception or returns a negative error code.
+        """
+        rest_val = str(newval)
+        return self._setAttr("bandwidth", rest_val)
 
     def get_axis(self):
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YTilt.AXIS_INVALID
-        return self._axis
+        res = self._axis
+        return res
 
     @staticmethod
     def FindTilt(func):
@@ -110,6 +145,10 @@ class YTilt(YSensor):
         a tilt sensor by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string that uniquely characterizes the tilt sensor
 
@@ -139,7 +178,7 @@ class YTilt(YSensor):
 
 #--- (end of YTilt implementation)
 
-#--- (Tilt functions)
+#--- (YTilt functions)
 
     @staticmethod
     def FirstTilt():
@@ -173,4 +212,4 @@ class YTilt(YSensor):
 
         return YTilt.FindTilt(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of Tilt functions)
+#--- (end of YTilt functions)

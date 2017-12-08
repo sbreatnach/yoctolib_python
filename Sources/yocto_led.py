@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_led.py 23578 2016-03-22 23:00:41Z mvuilleu $
+#* $Id: yocto_led.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindLed(), the high-level API for Led functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -46,7 +47,7 @@ from yocto_api import *
 #noinspection PyProtectedMember
 class YLed(YFunction):
     """
-    Yoctopuce application programming interface
+    The Yoctopuce application programming interface
     allows you not only to drive the intensity of the LED, but also to
     have it blink at various preset frequencies.
 
@@ -81,17 +82,14 @@ class YLed(YFunction):
         #--- (end of YLed attributes)
 
     #--- (YLed implementation)
-    def _parseAttr(self, member):
-        if member.name == "power":
-            self._power = member.ivalue
-            return 1
-        if member.name == "luminosity":
-            self._luminosity = member.ivalue
-            return 1
-        if member.name == "blinking":
-            self._blinking = member.ivalue
-            return 1
-        super(YLed, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("power"):
+            self._power = (json_val.getInt("power") > 0 if 1 else 0)
+        if json_val.has("luminosity"):
+            self._luminosity = json_val.getInt("luminosity")
+        if json_val.has("blinking"):
+            self._blinking = json_val.getInt("blinking")
+        super(YLed, self)._parseAttr(json_val)
 
     def get_power(self):
         """
@@ -101,10 +99,12 @@ class YLed(YFunction):
 
         On failure, throws an exception or returns YLed.POWER_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YLed.POWER_INVALID
-        return self._power
+        res = self._power
+        return res
 
     def set_power(self, newval):
         """
@@ -127,10 +127,12 @@ class YLed(YFunction):
 
         On failure, throws an exception or returns YLed.LUMINOSITY_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YLed.LUMINOSITY_INVALID
-        return self._luminosity
+        res = self._luminosity
+        return res
 
     def set_luminosity(self, newval):
         """
@@ -154,10 +156,12 @@ class YLed(YFunction):
 
         On failure, throws an exception or returns YLed.BLINKING_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YLed.BLINKING_INVALID
-        return self._blinking
+        res = self._blinking
+        return res
 
     def set_blinking(self, newval):
         """
@@ -194,6 +198,10 @@ class YLed(YFunction):
         found is returned. The search is performed first by hardware name,
         then by logical name.
 
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
+
         @param func : a string that uniquely characterizes the LED
 
         @return a YLed object allowing you to drive the LED.
@@ -222,7 +230,7 @@ class YLed(YFunction):
 
 #--- (end of YLed implementation)
 
-#--- (Led functions)
+#--- (YLed functions)
 
     @staticmethod
     def FirstLed():
@@ -256,4 +264,4 @@ class YLed(YFunction):
 
         return YLed.FindLed(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of Led functions)
+#--- (end of YLed functions)

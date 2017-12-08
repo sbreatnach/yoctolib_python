@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_bluetoothlink.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_bluetoothlink.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindBluetoothLink(), the high-level API for BluetoothLink functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -94,38 +95,28 @@ class YBluetoothLink(YFunction):
         #--- (end of YBluetoothLink attributes)
 
     #--- (YBluetoothLink implementation)
-    def _parseAttr(self, member):
-        if member.name == "ownAddress":
-            self._ownAddress = member.svalue
-            return 1
-        if member.name == "pairingPin":
-            self._pairingPin = member.svalue
-            return 1
-        if member.name == "remoteAddress":
-            self._remoteAddress = member.svalue
-            return 1
-        if member.name == "remoteName":
-            self._remoteName = member.svalue
-            return 1
-        if member.name == "mute":
-            self._mute = member.ivalue
-            return 1
-        if member.name == "preAmplifier":
-            self._preAmplifier = member.ivalue
-            return 1
-        if member.name == "volume":
-            self._volume = member.ivalue
-            return 1
-        if member.name == "linkState":
-            self._linkState = member.ivalue
-            return 1
-        if member.name == "linkQuality":
-            self._linkQuality = member.ivalue
-            return 1
-        if member.name == "command":
-            self._command = member.svalue
-            return 1
-        super(YBluetoothLink, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("ownAddress"):
+            self._ownAddress = json_val.getString("ownAddress")
+        if json_val.has("pairingPin"):
+            self._pairingPin = json_val.getString("pairingPin")
+        if json_val.has("remoteAddress"):
+            self._remoteAddress = json_val.getString("remoteAddress")
+        if json_val.has("remoteName"):
+            self._remoteName = json_val.getString("remoteName")
+        if json_val.has("mute"):
+            self._mute = (json_val.getInt("mute") > 0 if 1 else 0)
+        if json_val.has("preAmplifier"):
+            self._preAmplifier = json_val.getInt("preAmplifier")
+        if json_val.has("volume"):
+            self._volume = json_val.getInt("volume")
+        if json_val.has("linkState"):
+            self._linkState = json_val.getInt("linkState")
+        if json_val.has("linkQuality"):
+            self._linkQuality = json_val.getInt("linkQuality")
+        if json_val.has("command"):
+            self._command = json_val.getString("command")
+        super(YBluetoothLink, self)._parseAttr(json_val)
 
     def get_ownAddress(self):
         """
@@ -136,10 +127,12 @@ class YBluetoothLink(YFunction):
 
         On failure, throws an exception or returns YBluetoothLink.OWNADDRESS_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YBluetoothLink.OWNADDRESS_INVALID
-        return self._ownAddress
+        res = self._ownAddress
+        return res
 
     def get_pairingPin(self):
         """
@@ -153,10 +146,12 @@ class YBluetoothLink(YFunction):
 
         On failure, throws an exception or returns YBluetoothLink.PAIRINGPIN_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YBluetoothLink.PAIRINGPIN_INVALID
-        return self._pairingPin
+        res = self._pairingPin
+        return res
 
     def set_pairingPin(self, newval):
         """
@@ -181,10 +176,12 @@ class YBluetoothLink(YFunction):
 
         On failure, throws an exception or returns YBluetoothLink.REMOTEADDRESS_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YBluetoothLink.REMOTEADDRESS_INVALID
-        return self._remoteAddress
+        res = self._remoteAddress
+        return res
 
     def set_remoteAddress(self, newval):
         """
@@ -207,10 +204,12 @@ class YBluetoothLink(YFunction):
 
         On failure, throws an exception or returns YBluetoothLink.REMOTENAME_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YBluetoothLink.REMOTENAME_INVALID
-        return self._remoteName
+        res = self._remoteName
+        return res
 
     def get_mute(self):
         """
@@ -221,10 +220,12 @@ class YBluetoothLink(YFunction):
 
         On failure, throws an exception or returns YBluetoothLink.MUTE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YBluetoothLink.MUTE_INVALID
-        return self._mute
+        res = self._mute
+        return res
 
     def set_mute(self, newval):
         """
@@ -249,10 +250,12 @@ class YBluetoothLink(YFunction):
 
         On failure, throws an exception or returns YBluetoothLink.PREAMPLIFIER_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YBluetoothLink.PREAMPLIFIER_INVALID
-        return self._preAmplifier
+        res = self._preAmplifier
+        return res
 
     def set_preAmplifier(self, newval):
         """
@@ -275,10 +278,12 @@ class YBluetoothLink(YFunction):
 
         On failure, throws an exception or returns YBluetoothLink.VOLUME_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YBluetoothLink.VOLUME_INVALID
-        return self._volume
+        res = self._volume
+        return res
 
     def set_volume(self, newval):
         """
@@ -303,10 +308,12 @@ class YBluetoothLink(YFunction):
 
         On failure, throws an exception or returns YBluetoothLink.LINKSTATE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YBluetoothLink.LINKSTATE_INVALID
-        return self._linkState
+        res = self._linkState
+        return res
 
     def get_linkQuality(self):
         """
@@ -317,16 +324,20 @@ class YBluetoothLink(YFunction):
 
         On failure, throws an exception or returns YBluetoothLink.LINKQUALITY_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YBluetoothLink.LINKQUALITY_INVALID
-        return self._linkQuality
+        res = self._linkQuality
+        return res
 
     def get_command(self):
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YBluetoothLink.COMMAND_INVALID
-        return self._command
+        res = self._command
+        return res
 
     def set_command(self, newval):
         rest_val = newval
@@ -352,6 +363,10 @@ class YBluetoothLink(YFunction):
         a cellular interface by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string that uniquely characterizes the cellular interface
 
@@ -401,7 +416,7 @@ class YBluetoothLink(YFunction):
 
 #--- (end of YBluetoothLink implementation)
 
-#--- (BluetoothLink functions)
+#--- (YBluetoothLink functions)
 
     @staticmethod
     def FirstBluetoothLink():
@@ -435,4 +450,4 @@ class YBluetoothLink(YFunction):
 
         return YBluetoothLink.FindBluetoothLink(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of BluetoothLink functions)
+#--- (end of YBluetoothLink functions)

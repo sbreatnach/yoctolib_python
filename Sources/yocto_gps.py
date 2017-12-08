@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_gps.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_gps.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindGps(), the high-level API for Gps functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -100,47 +101,34 @@ class YGps(YFunction):
         #--- (end of YGps attributes)
 
     #--- (YGps implementation)
-    def _parseAttr(self, member):
-        if member.name == "isFixed":
-            self._isFixed = member.ivalue
-            return 1
-        if member.name == "satCount":
-            self._satCount = member.ivalue
-            return 1
-        if member.name == "coordSystem":
-            self._coordSystem = member.ivalue
-            return 1
-        if member.name == "latitude":
-            self._latitude = member.svalue
-            return 1
-        if member.name == "longitude":
-            self._longitude = member.svalue
-            return 1
-        if member.name == "dilution":
-            self._dilution = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "altitude":
-            self._altitude = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "groundSpeed":
-            self._groundSpeed = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "direction":
-            self._direction = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "unixTime":
-            self._unixTime = member.ivalue
-            return 1
-        if member.name == "dateTime":
-            self._dateTime = member.svalue
-            return 1
-        if member.name == "utcOffset":
-            self._utcOffset = member.ivalue
-            return 1
-        if member.name == "command":
-            self._command = member.svalue
-            return 1
-        super(YGps, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("isFixed"):
+            self._isFixed = (json_val.getInt("isFixed") > 0 if 1 else 0)
+        if json_val.has("satCount"):
+            self._satCount = json_val.getLong("satCount")
+        if json_val.has("coordSystem"):
+            self._coordSystem = json_val.getInt("coordSystem")
+        if json_val.has("latitude"):
+            self._latitude = json_val.getString("latitude")
+        if json_val.has("longitude"):
+            self._longitude = json_val.getString("longitude")
+        if json_val.has("dilution"):
+            self._dilution = round(json_val.getDouble("dilution") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("altitude"):
+            self._altitude = round(json_val.getDouble("altitude") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("groundSpeed"):
+            self._groundSpeed = round(json_val.getDouble("groundSpeed") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("direction"):
+            self._direction = round(json_val.getDouble("direction") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("unixTime"):
+            self._unixTime = json_val.getLong("unixTime")
+        if json_val.has("dateTime"):
+            self._dateTime = json_val.getString("dateTime")
+        if json_val.has("utcOffset"):
+            self._utcOffset = json_val.getInt("utcOffset")
+        if json_val.has("command"):
+            self._command = json_val.getString("command")
+        super(YGps, self)._parseAttr(json_val)
 
     def get_isFixed(self):
         """
@@ -151,10 +139,12 @@ class YGps(YFunction):
 
         On failure, throws an exception or returns YGps.ISFIXED_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YGps.ISFIXED_INVALID
-        return self._isFixed
+        res = self._isFixed
+        return res
 
     def get_satCount(self):
         """
@@ -164,10 +154,12 @@ class YGps(YFunction):
 
         On failure, throws an exception or returns YGps.SATCOUNT_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YGps.SATCOUNT_INVALID
-        return self._satCount
+        res = self._satCount
+        return res
 
     def get_coordSystem(self):
         """
@@ -178,10 +170,12 @@ class YGps(YFunction):
 
         On failure, throws an exception or returns YGps.COORDSYSTEM_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YGps.COORDSYSTEM_INVALID
-        return self._coordSystem
+        res = self._coordSystem
+        return res
 
     def set_coordSystem(self, newval):
         """
@@ -205,10 +199,12 @@ class YGps(YFunction):
 
         On failure, throws an exception or returns YGps.LATITUDE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YGps.LATITUDE_INVALID
-        return self._latitude
+        res = self._latitude
+        return res
 
     def get_longitude(self):
         """
@@ -218,10 +214,12 @@ class YGps(YFunction):
 
         On failure, throws an exception or returns YGps.LONGITUDE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YGps.LONGITUDE_INVALID
-        return self._longitude
+        res = self._longitude
+        return res
 
     def get_dilution(self):
         """
@@ -233,10 +231,12 @@ class YGps(YFunction):
 
         On failure, throws an exception or returns YGps.DILUTION_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YGps.DILUTION_INVALID
-        return self._dilution
+        res = self._dilution
+        return res
 
     def get_altitude(self):
         """
@@ -247,10 +247,12 @@ class YGps(YFunction):
 
         On failure, throws an exception or returns YGps.ALTITUDE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YGps.ALTITUDE_INVALID
-        return self._altitude
+        res = self._altitude
+        return res
 
     def get_groundSpeed(self):
         """
@@ -260,10 +262,12 @@ class YGps(YFunction):
 
         On failure, throws an exception or returns YGps.GROUNDSPEED_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YGps.GROUNDSPEED_INVALID
-        return self._groundSpeed
+        res = self._groundSpeed
+        return res
 
     def get_direction(self):
         """
@@ -275,10 +279,12 @@ class YGps(YFunction):
 
         On failure, throws an exception or returns YGps.DIRECTION_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YGps.DIRECTION_INVALID
-        return self._direction
+        res = self._direction
+        return res
 
     def get_unixTime(self):
         """
@@ -290,10 +296,12 @@ class YGps(YFunction):
 
         On failure, throws an exception or returns YGps.UNIXTIME_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YGps.UNIXTIME_INVALID
-        return self._unixTime
+        res = self._unixTime
+        return res
 
     def get_dateTime(self):
         """
@@ -303,10 +311,12 @@ class YGps(YFunction):
 
         On failure, throws an exception or returns YGps.DATETIME_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YGps.DATETIME_INVALID
-        return self._dateTime
+        res = self._dateTime
+        return res
 
     def get_utcOffset(self):
         """
@@ -316,10 +326,12 @@ class YGps(YFunction):
 
         On failure, throws an exception or returns YGps.UTCOFFSET_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YGps.UTCOFFSET_INVALID
-        return self._utcOffset
+        res = self._utcOffset
+        return res
 
     def set_utcOffset(self, newval):
         """
@@ -337,10 +349,12 @@ class YGps(YFunction):
         return self._setAttr("utcOffset", rest_val)
 
     def get_command(self):
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YGps.COMMAND_INVALID
-        return self._command
+        res = self._command
+        return res
 
     def set_command(self, newval):
         rest_val = newval
@@ -366,6 +380,10 @@ class YGps(YFunction):
         a GPS by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string that uniquely characterizes the GPS
 
@@ -395,7 +413,7 @@ class YGps(YFunction):
 
 #--- (end of YGps implementation)
 
-#--- (Gps functions)
+#--- (YGps functions)
 
     @staticmethod
     def FirstGps():
@@ -429,4 +447,4 @@ class YGps(YFunction):
 
         return YGps.FindGps(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of Gps functions)
+#--- (end of YGps functions)

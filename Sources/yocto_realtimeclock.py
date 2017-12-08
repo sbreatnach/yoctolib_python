@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_realtimeclock.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_realtimeclock.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindRealTimeClock(), the high-level API for RealTimeClock functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -78,20 +79,16 @@ class YRealTimeClock(YFunction):
         #--- (end of YRealTimeClock attributes)
 
     #--- (YRealTimeClock implementation)
-    def _parseAttr(self, member):
-        if member.name == "unixTime":
-            self._unixTime = member.ivalue
-            return 1
-        if member.name == "dateTime":
-            self._dateTime = member.svalue
-            return 1
-        if member.name == "utcOffset":
-            self._utcOffset = member.ivalue
-            return 1
-        if member.name == "timeSet":
-            self._timeSet = member.ivalue
-            return 1
-        super(YRealTimeClock, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("unixTime"):
+            self._unixTime = json_val.getLong("unixTime")
+        if json_val.has("dateTime"):
+            self._dateTime = json_val.getString("dateTime")
+        if json_val.has("utcOffset"):
+            self._utcOffset = json_val.getInt("utcOffset")
+        if json_val.has("timeSet"):
+            self._timeSet = (json_val.getInt("timeSet") > 0 if 1 else 0)
+        super(YRealTimeClock, self)._parseAttr(json_val)
 
     def get_unixTime(self):
         """
@@ -102,10 +99,12 @@ class YRealTimeClock(YFunction):
 
         On failure, throws an exception or returns YRealTimeClock.UNIXTIME_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YRealTimeClock.UNIXTIME_INVALID
-        return self._unixTime
+        res = self._unixTime
+        return res
 
     def set_unixTime(self, newval):
         """
@@ -128,10 +127,12 @@ class YRealTimeClock(YFunction):
 
         On failure, throws an exception or returns YRealTimeClock.DATETIME_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YRealTimeClock.DATETIME_INVALID
-        return self._dateTime
+        res = self._dateTime
+        return res
 
     def get_utcOffset(self):
         """
@@ -141,10 +142,12 @@ class YRealTimeClock(YFunction):
 
         On failure, throws an exception or returns YRealTimeClock.UTCOFFSET_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YRealTimeClock.UTCOFFSET_INVALID
-        return self._utcOffset
+        res = self._utcOffset
+        return res
 
     def set_utcOffset(self, newval):
         """
@@ -169,10 +172,12 @@ class YRealTimeClock(YFunction):
 
         On failure, throws an exception or returns YRealTimeClock.TIMESET_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YRealTimeClock.TIMESET_INVALID
-        return self._timeSet
+        res = self._timeSet
+        return res
 
     @staticmethod
     def FindRealTimeClock(func):
@@ -194,6 +199,10 @@ class YRealTimeClock(YFunction):
         a clock by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string that uniquely characterizes the clock
 
@@ -223,7 +232,7 @@ class YRealTimeClock(YFunction):
 
 #--- (end of YRealTimeClock implementation)
 
-#--- (RealTimeClock functions)
+#--- (YRealTimeClock functions)
 
     @staticmethod
     def FirstRealTimeClock():
@@ -257,4 +266,4 @@ class YRealTimeClock(YFunction):
 
         return YRealTimeClock.FindRealTimeClock(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of RealTimeClock functions)
+#--- (end of YRealTimeClock functions)

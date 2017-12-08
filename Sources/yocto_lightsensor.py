@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_lightsensor.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_lightsensor.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindLightSensor(), the high-level API for LightSensor functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -48,7 +49,7 @@ class YLightSensor(YSensor):
     """
     The Yoctopuce class YLightSensor allows you to read and configure Yoctopuce light
     sensors. It inherits from YSensor class the core functions to read measurements,
-    register callback functions, access to the autonomous datalogger.
+    to register callback functions, to access the autonomous datalogger.
     This class adds the ability to easily perform a one-point linear calibration
     to compensate the effect of a glass or filter placed in front of the sensor.
     For some light sensors with several working modes, this class can select the
@@ -78,11 +79,10 @@ class YLightSensor(YSensor):
         #--- (end of YLightSensor attributes)
 
     #--- (YLightSensor implementation)
-    def _parseAttr(self, member):
-        if member.name == "measureType":
-            self._measureType = member.ivalue
-            return 1
-        super(YLightSensor, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("measureType"):
+            self._measureType = json_val.getInt("measureType")
+        super(YLightSensor, self)._parseAttr(json_val)
 
     def set_currentValue(self, newval):
         rest_val = str(int(round(newval * 65536.0, 1)))
@@ -115,14 +115,16 @@ class YLightSensor(YSensor):
 
         On failure, throws an exception or returns YLightSensor.MEASURETYPE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YLightSensor.MEASURETYPE_INVALID
-        return self._measureType
+        res = self._measureType
+        return res
 
     def set_measureType(self, newval):
         """
-        Modify the light sensor type used in the device. The measure can either
+        Changes the light sensor type used in the device. The measure can either
         approximate the response of the human eye, focus on a specific light
         spectrum, depending on the capabilities of the light-sensitive cell.
         Remember to call the saveToFlash() method of the module if the
@@ -130,7 +132,8 @@ class YLightSensor(YSensor):
 
         @param newval : a value among YLightSensor.MEASURETYPE_HUMAN_EYE,
         YLightSensor.MEASURETYPE_WIDE_SPECTRUM, YLightSensor.MEASURETYPE_INFRARED,
-        YLightSensor.MEASURETYPE_HIGH_RATE and YLightSensor.MEASURETYPE_HIGH_ENERGY
+        YLightSensor.MEASURETYPE_HIGH_RATE and YLightSensor.MEASURETYPE_HIGH_ENERGY corresponding to the
+        light sensor type used in the device
 
         @return YAPI.SUCCESS if the call succeeds.
 
@@ -160,6 +163,10 @@ class YLightSensor(YSensor):
         found is returned. The search is performed first by hardware name,
         then by logical name.
 
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
+
         @param func : a string that uniquely characterizes the light sensor
 
         @return a YLightSensor object allowing you to drive the light sensor.
@@ -188,7 +195,7 @@ class YLightSensor(YSensor):
 
 #--- (end of YLightSensor implementation)
 
-#--- (LightSensor functions)
+#--- (YLightSensor functions)
 
     @staticmethod
     def FirstLightSensor():
@@ -222,4 +229,4 @@ class YLightSensor(YSensor):
 
         return YLightSensor.FindLightSensor(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of LightSensor functions)
+#--- (end of YLightSensor functions)

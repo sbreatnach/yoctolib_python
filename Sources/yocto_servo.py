@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_servo.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_servo.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindServo(), the high-level API for Servo functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -86,38 +87,29 @@ class YServo(YFunction):
         #--- (end of YServo attributes)
 
     #--- (YServo implementation)
-    def _parseAttr(self, member):
-        if member.name == "position":
-            self._position = member.ivalue
-            return 1
-        if member.name == "enabled":
-            self._enabled = member.ivalue
-            return 1
-        if member.name == "range":
-            self._range = member.ivalue
-            return 1
-        if member.name == "neutral":
-            self._neutral = member.ivalue
-            return 1
-        if member.name == "move":
-            if member.recordtype != YAPI.TJSONRECORDTYPE.JSON_STRUCT:
-                self._move = -1
+    def _parseAttr(self, json_val):
+        if json_val.has("position"):
+            self._position = json_val.getInt("position")
+        if json_val.has("enabled"):
+            self._enabled = (json_val.getInt("enabled") > 0 if 1 else 0)
+        if json_val.has("range"):
+            self._range = json_val.getInt("range")
+        if json_val.has("neutral"):
+            self._neutral = json_val.getInt("neutral")
+        if json_val.has("move"):
+            subjson = json_val.getYJSONObject("move");
             self._move = {"moving": None, "target": None, "ms": None}
-            for submemb in member.members:
-                if submemb.name == "moving":
-                    self._move["moving"] = submemb.ivalue
-                elif submemb.name == "target":
-                    self._move["target"] = submemb.ivalue
-                elif submemb.name == "ms":
-                    self._move["ms"] = submemb.ivalue
-            return 1
-        if member.name == "positionAtPowerOn":
-            self._positionAtPowerOn = member.ivalue
-            return 1
-        if member.name == "enabledAtPowerOn":
-            self._enabledAtPowerOn = member.ivalue
-            return 1
-        super(YServo, self)._parseAttr(member)
+            if subjson.has("moving"):
+                self._move["moving"] = subjson.getInt("moving")
+            if subjson.has("target"):
+                self._move["target"] = subjson.getInt("target")
+            if subjson.has("ms"):
+                self._move["ms"] = subjson.getInt("ms")
+        if json_val.has("positionAtPowerOn"):
+            self._positionAtPowerOn = json_val.getInt("positionAtPowerOn")
+        if json_val.has("enabledAtPowerOn"):
+            self._enabledAtPowerOn = (json_val.getInt("enabledAtPowerOn") > 0 if 1 else 0)
+        super(YServo, self)._parseAttr(json_val)
 
     def get_position(self):
         """
@@ -127,10 +119,12 @@ class YServo(YFunction):
 
         On failure, throws an exception or returns YServo.POSITION_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YServo.POSITION_INVALID
-        return self._position
+        res = self._position
+        return res
 
     def set_position(self, newval):
         """
@@ -153,10 +147,12 @@ class YServo(YFunction):
 
         On failure, throws an exception or returns YServo.ENABLED_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YServo.ENABLED_INVALID
-        return self._enabled
+        res = self._enabled
+        return res
 
     def set_enabled(self, newval):
         """
@@ -179,10 +175,12 @@ class YServo(YFunction):
 
         On failure, throws an exception or returns YServo.RANGE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YServo.RANGE_INVALID
-        return self._range
+        res = self._range
+        return res
 
     def set_range(self, newval):
         """
@@ -211,10 +209,12 @@ class YServo(YFunction):
 
         On failure, throws an exception or returns YServo.NEUTRAL_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YServo.NEUTRAL_INVALID
-        return self._neutral
+        res = self._neutral
+        return res
 
     def set_neutral(self, newval):
         """
@@ -236,10 +236,12 @@ class YServo(YFunction):
         return self._setAttr("neutral", rest_val)
 
     def get_move(self):
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YServo.MOVE_INVALID
-        return self._move
+        res = self._move
+        return res
 
     def set_move(self, newval):
         rest_val = str(newval.target) + ":" + str(newval.ms)
@@ -267,10 +269,12 @@ class YServo(YFunction):
 
         On failure, throws an exception or returns YServo.POSITIONATPOWERON_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YServo.POSITIONATPOWERON_INVALID
-        return self._positionAtPowerOn
+        res = self._positionAtPowerOn
+        return res
 
     def set_positionAtPowerOn(self, newval):
         """
@@ -295,10 +299,12 @@ class YServo(YFunction):
 
         On failure, throws an exception or returns YServo.ENABLEDATPOWERON_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YServo.ENABLEDATPOWERON_INVALID
-        return self._enabledAtPowerOn
+        res = self._enabledAtPowerOn
+        return res
 
     def set_enabledAtPowerOn(self, newval):
         """
@@ -335,6 +341,10 @@ class YServo(YFunction):
         found is returned. The search is performed first by hardware name,
         then by logical name.
 
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
+
         @param func : a string that uniquely characterizes the servo
 
         @return a YServo object allowing you to drive the servo.
@@ -363,7 +373,7 @@ class YServo(YFunction):
 
 #--- (end of YServo implementation)
 
-#--- (Servo functions)
+#--- (YServo functions)
 
     @staticmethod
     def FirstServo():
@@ -397,4 +407,4 @@ class YServo(YFunction):
 
         return YServo.FindServo(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of Servo functions)
+#--- (end of YServo functions)

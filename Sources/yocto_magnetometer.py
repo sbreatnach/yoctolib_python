@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_magnetometer.py 23243 2016-02-23 14:13:12Z seb $
+#* $Id: yocto_magnetometer.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindMagnetometer(), the high-level API for Magnetometer functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -63,6 +64,7 @@ class YMagnetometer(YSensor):
     #--- (YMagnetometer dlldef)
     #--- (end of YMagnetometer dlldef)
     #--- (YMagnetometer definitions)
+    BANDWIDTH_INVALID = YAPI.INVALID_INT
     XVALUE_INVALID = YAPI.INVALID_DOUBLE
     YVALUE_INVALID = YAPI.INVALID_DOUBLE
     ZVALUE_INVALID = YAPI.INVALID_DOUBLE
@@ -73,23 +75,52 @@ class YMagnetometer(YSensor):
         self._className = 'Magnetometer'
         #--- (YMagnetometer attributes)
         self._callback = None
+        self._bandwidth = YMagnetometer.BANDWIDTH_INVALID
         self._xValue = YMagnetometer.XVALUE_INVALID
         self._yValue = YMagnetometer.YVALUE_INVALID
         self._zValue = YMagnetometer.ZVALUE_INVALID
         #--- (end of YMagnetometer attributes)
 
     #--- (YMagnetometer implementation)
-    def _parseAttr(self, member):
-        if member.name == "xValue":
-            self._xValue = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "yValue":
-            self._yValue = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "zValue":
-            self._zValue = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        super(YMagnetometer, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("bandwidth"):
+            self._bandwidth = json_val.getInt("bandwidth")
+        if json_val.has("xValue"):
+            self._xValue = round(json_val.getDouble("xValue") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("yValue"):
+            self._yValue = round(json_val.getDouble("yValue") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("zValue"):
+            self._zValue = round(json_val.getDouble("zValue") * 1000.0 / 65536.0) / 1000.0
+        super(YMagnetometer, self)._parseAttr(json_val)
+
+    def get_bandwidth(self):
+        """
+        Returns the measure update frequency, measured in Hz (Yocto-3D-V2 only).
+
+        @return an integer corresponding to the measure update frequency, measured in Hz (Yocto-3D-V2 only)
+
+        On failure, throws an exception or returns YMagnetometer.BANDWIDTH_INVALID.
+        """
+        # res
+        if self._cacheExpiration <= YAPI.GetTickCount():
+            if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
+                return YMagnetometer.BANDWIDTH_INVALID
+        res = self._bandwidth
+        return res
+
+    def set_bandwidth(self, newval):
+        """
+        Changes the measure update frequency, measured in Hz (Yocto-3D-V2 only). When the
+        frequency is lower, the device performs averaging.
+
+        @param newval : an integer corresponding to the measure update frequency, measured in Hz (Yocto-3D-V2 only)
+
+        @return YAPI.SUCCESS if the call succeeds.
+
+        On failure, throws an exception or returns a negative error code.
+        """
+        rest_val = str(newval)
+        return self._setAttr("bandwidth", rest_val)
 
     def get_xValue(self):
         """
@@ -100,10 +131,12 @@ class YMagnetometer(YSensor):
 
         On failure, throws an exception or returns YMagnetometer.XVALUE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YMagnetometer.XVALUE_INVALID
-        return self._xValue
+        res = self._xValue
+        return res
 
     def get_yValue(self):
         """
@@ -114,10 +147,12 @@ class YMagnetometer(YSensor):
 
         On failure, throws an exception or returns YMagnetometer.YVALUE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YMagnetometer.YVALUE_INVALID
-        return self._yValue
+        res = self._yValue
+        return res
 
     def get_zValue(self):
         """
@@ -128,10 +163,12 @@ class YMagnetometer(YSensor):
 
         On failure, throws an exception or returns YMagnetometer.ZVALUE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YMagnetometer.ZVALUE_INVALID
-        return self._zValue
+        res = self._zValue
+        return res
 
     @staticmethod
     def FindMagnetometer(func):
@@ -153,6 +190,10 @@ class YMagnetometer(YSensor):
         a magnetometer by logical name, no error is notified: the first instance
         found is returned. The search is performed first by hardware name,
         then by logical name.
+
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
 
         @param func : a string that uniquely characterizes the magnetometer
 
@@ -182,7 +223,7 @@ class YMagnetometer(YSensor):
 
 #--- (end of YMagnetometer implementation)
 
-#--- (Magnetometer functions)
+#--- (YMagnetometer functions)
 
     @staticmethod
     def FirstMagnetometer():
@@ -216,4 +257,4 @@ class YMagnetometer(YSensor):
 
         return YMagnetometer.FindMagnetometer(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of Magnetometer functions)
+#--- (end of YMagnetometer functions)

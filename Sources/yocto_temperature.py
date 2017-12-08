@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_temperature.py 23527 2016-03-18 21:49:19Z mvuilleu $
+#* $Id: yocto_temperature.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindTemperature(), the high-level API for Temperature functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
@@ -23,7 +24,7 @@
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
 #*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
@@ -39,6 +40,7 @@
 
 
 __docformat__ = 'restructuredtext en'
+import math
 from yocto_api import *
 
 
@@ -47,8 +49,8 @@ from yocto_api import *
 class YTemperature(YSensor):
     """
     The Yoctopuce class YTemperature allows you to read and configure Yoctopuce temperature
-    sensors. It inherits from YSensor class the core functions to read measurements,
-    register callback functions, access to the autonomous datalogger.
+    sensors. It inherits from YSensor class the core functions to read measurements, to
+    register callback functions, to access the autonomous datalogger.
     This class adds the ability to configure some specific parameters for some
     sensors (connection type, temperature mapping table).
 
@@ -76,6 +78,7 @@ class YTemperature(YSensor):
     SENSORTYPE_RES_OHM = 11
     SENSORTYPE_RES_NTC = 12
     SENSORTYPE_RES_LINEAR = 13
+    SENSORTYPE_RES_INTERNAL = 14
     SENSORTYPE_INVALID = -1
     #--- (end of YTemperature definitions)
 
@@ -91,20 +94,16 @@ class YTemperature(YSensor):
         #--- (end of YTemperature attributes)
 
     #--- (YTemperature implementation)
-    def _parseAttr(self, member):
-        if member.name == "sensorType":
-            self._sensorType = member.ivalue
-            return 1
-        if member.name == "signalValue":
-            self._signalValue = round(member.ivalue * 1000.0 / 65536.0) / 1000.0
-            return 1
-        if member.name == "signalUnit":
-            self._signalUnit = member.svalue
-            return 1
-        if member.name == "command":
-            self._command = member.svalue
-            return 1
-        super(YTemperature, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("sensorType"):
+            self._sensorType = json_val.getInt("sensorType")
+        if json_val.has("signalValue"):
+            self._signalValue = round(json_val.getDouble("signalValue") * 1000.0 / 65536.0) / 1000.0
+        if json_val.has("signalUnit"):
+            self._signalUnit = json_val.getString("signalUnit")
+        if json_val.has("command"):
+            self._command = json_val.getString("command")
+        super(YTemperature, self)._parseAttr(json_val)
 
     def set_unit(self, newval):
         """
@@ -136,19 +135,21 @@ class YTemperature(YSensor):
         YTemperature.SENSORTYPE_TYPE_R, YTemperature.SENSORTYPE_TYPE_S, YTemperature.SENSORTYPE_TYPE_T,
         YTemperature.SENSORTYPE_PT100_4WIRES, YTemperature.SENSORTYPE_PT100_3WIRES,
         YTemperature.SENSORTYPE_PT100_2WIRES, YTemperature.SENSORTYPE_RES_OHM,
-        YTemperature.SENSORTYPE_RES_NTC and YTemperature.SENSORTYPE_RES_LINEAR corresponding to the
-        temperature sensor type
+        YTemperature.SENSORTYPE_RES_NTC, YTemperature.SENSORTYPE_RES_LINEAR and
+        YTemperature.SENSORTYPE_RES_INTERNAL corresponding to the temperature sensor type
 
         On failure, throws an exception or returns YTemperature.SENSORTYPE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YTemperature.SENSORTYPE_INVALID
-        return self._sensorType
+        res = self._sensorType
+        return res
 
     def set_sensorType(self, newval):
         """
-        Modifies the temperature sensor type.  This function is used
+        Changes the temperature sensor type.  This function is used
         to define the type of thermocouple (K,E...) used with the device.
         It has no effect if module is using a digital sensor or a thermistor.
         Remember to call the saveToFlash() method of the module if the
@@ -159,7 +160,8 @@ class YTemperature(YSensor):
         YTemperature.SENSORTYPE_TYPE_R, YTemperature.SENSORTYPE_TYPE_S, YTemperature.SENSORTYPE_TYPE_T,
         YTemperature.SENSORTYPE_PT100_4WIRES, YTemperature.SENSORTYPE_PT100_3WIRES,
         YTemperature.SENSORTYPE_PT100_2WIRES, YTemperature.SENSORTYPE_RES_OHM,
-        YTemperature.SENSORTYPE_RES_NTC and YTemperature.SENSORTYPE_RES_LINEAR
+        YTemperature.SENSORTYPE_RES_NTC, YTemperature.SENSORTYPE_RES_LINEAR and
+        YTemperature.SENSORTYPE_RES_INTERNAL corresponding to the temperature sensor type
 
         @return YAPI.SUCCESS if the call succeeds.
 
@@ -177,10 +179,12 @@ class YTemperature(YSensor):
 
         On failure, throws an exception or returns YTemperature.SIGNALVALUE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YTemperature.SIGNALVALUE_INVALID
-        return round(self._signalValue * 1000) / 1000
+        res = round(self._signalValue * 1000) / 1000
+        return res
 
     def get_signalUnit(self):
         """
@@ -190,16 +194,20 @@ class YTemperature(YSensor):
 
         On failure, throws an exception or returns YTemperature.SIGNALUNIT_INVALID.
         """
-        if self._cacheExpiration == datetime.datetime.fromtimestamp(0):
+        # res
+        if self._cacheExpiration == datetime.datetime.fromtimestamp(86400):
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YTemperature.SIGNALUNIT_INVALID
-        return self._signalUnit
+        res = self._signalUnit
+        return res
 
     def get_command(self):
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YTemperature.COMMAND_INVALID
-        return self._command
+        res = self._command
+        return res
 
     def set_command(self, newval):
         rest_val = newval
@@ -226,6 +234,10 @@ class YTemperature(YSensor):
         found is returned. The search is performed first by hardware name,
         then by logical name.
 
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
+
         @param func : a string that uniquely characterizes the temperature sensor
 
         @return a YTemperature object allowing you to drive the temperature sensor.
@@ -239,7 +251,7 @@ class YTemperature(YSensor):
 
     def set_ntcParameters(self, res25, beta):
         """
-        Configure NTC thermistor parameters in order to properly compute the temperature from
+        Configures NTC thermistor parameters in order to properly compute the temperature from
         the measured resistance. For increased precision, you can enter a complete mapping
         table using set_thermistorResponseTable. This function can only be used with a
         temperature sensor based on thermistors.
@@ -258,15 +270,15 @@ class YTemperature(YSensor):
         resValues = []
         t0 = 25.0+275.15
         t1 = 100.0+275.15
-        res100 = res25 * exp(beta*(1.0/t1 - 1.0/t0))
+        res100 = res25 * math.exp(beta*(1.0/t1 - 1.0/t0))
         del tempValues[:]
         del resValues[:]
         tempValues.append(25.0)
         resValues.append(res25)
         tempValues.append(100.0)
         resValues.append(res100)
-        
-        
+
+
         return self.set_thermistorResponseTable(tempValues, resValues)
 
     def set_thermistorResponseTable(self, tempValues, resValues):
@@ -299,7 +311,7 @@ class YTemperature(YSensor):
             self._throw(YAPI.INVALID_ARGUMENT, "thermistor response table must have at least two points")
         if not (siz == len(resValues)):
             self._throw(YAPI.INVALID_ARGUMENT, "table sizes mismatch")
-        # // may throw an exception
+
         res = self.set_command("Z")
         if not (res==YAPI.SUCCESS):
             self._throw(YAPI.IO_ERROR, "unable to reset thermistor parameters")
@@ -355,7 +367,7 @@ class YTemperature(YSensor):
         # currRes
         del tempValues[:]
         del resValues[:]
-        # // may throw an exception
+
         id = self.get_functionId()
         id = (id)[11: 11 + len(id) - 11]
         bin_json = self._download("extra.json?page=" + id)
@@ -389,8 +401,8 @@ class YTemperature(YSensor):
                 tempValues.append(curr)
                 resValues.append(currRes)
                 prev = curr
-        
-        
+
+
         return YAPI.SUCCESS
 
     def nextTemperature(self):
@@ -410,7 +422,7 @@ class YTemperature(YSensor):
 
 #--- (end of YTemperature implementation)
 
-#--- (Temperature functions)
+#--- (YTemperature functions)
 
     @staticmethod
     def FirstTemperature():
@@ -444,4 +456,4 @@ class YTemperature(YSensor):
 
         return YTemperature.FindTemperature(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of Temperature functions)
+#--- (end of YTemperature functions)

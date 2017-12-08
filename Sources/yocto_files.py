@@ -1,35 +1,36 @@
+# -*- coding: utf-8 -*-
 #*********************************************************************
 #*
-#* $Id: yocto_files.py 22704 2016-01-13 11:09:55Z seb $
+#* $Id: yocto_files.py 28742 2017-10-03 08:12:07Z seb $
 #*
 #* Implements yFindFiles(), the high-level API for Files functions
 #*
-#* - - - - - - - - - License information: - - - - - - - - - 
+#* - - - - - - - - - License information: - - - - - - - - -
 #*
 #*  Copyright (C) 2011 and beyond by Yoctopuce Sarl, Switzerland.
 #*
 #*  Yoctopuce Sarl (hereafter Licensor) grants to you a perpetual
 #*  non-exclusive license to use, modify, copy and integrate this
-#*  file into your software for the sole purpose of interfacing 
-#*  with Yoctopuce products. 
+#*  file into your software for the sole purpose of interfacing
+#*  with Yoctopuce products.
 #*
-#*  You may reproduce and distribute copies of this file in 
+#*  You may reproduce and distribute copies of this file in
 #*  source or object form, as long as the sole purpose of this
-#*  code is to interface with Yoctopuce products. You must retain 
+#*  code is to interface with Yoctopuce products. You must retain
 #*  this notice in the distributed source file.
 #*
 #*  You should refer to Yoctopuce General Terms and Conditions
-#*  for additional information regarding your rights and 
+#*  for additional information regarding your rights and
 #*  obligations.
 #*
 #*  THE SOFTWARE AND DOCUMENTATION ARE PROVIDED 'AS IS' WITHOUT
-#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING 
-#*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS 
+#*  WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+#*  WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS
 #*  FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO
 #*  EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL,
-#*  INDIRECT OR CONSEQUENTIAL DAMAGES, LOST PROFITS OR LOST DATA, 
-#*  COST OF PROCUREMENT OF SUBSTITUTE GOODS, TECHNOLOGY OR 
-#*  SERVICES, ANY CLAIMS BY THIRD PARTIES (INCLUDING BUT NOT 
+#*  INDIRECT OR CONSEQUENTIAL DAMAGES, LOST PROFITS OR LOST DATA,
+#*  COST OF PROCUREMENT OF SUBSTITUTE GOODS, TECHNOLOGY OR
+#*  SERVICES, ANY CLAIMS BY THIRD PARTIES (INCLUDING BUT NOT
 #*  LIMITED TO ANY DEFENSE THEREOF), ANY CLAIMS FOR INDEMNITY OR
 #*  CONTRIBUTION, OR OTHER SIMILAR COSTS, WHETHER ASSERTED ON THE
 #*  BASIS OF CONTRACT, TORT (INCLUDING NEGLIGENCE), BREACH OF
@@ -49,23 +50,17 @@ class YFileRecord(object):
     #--- (generated code: YFileRecord definitions)
     #--- (end of generated code: YFileRecord definitions)
 
-    def __init__(self, json):
+    def __init__(self, json_str):
     #--- (generated code: YFileRecord attributes)
         self._name = ''
         self._size = 0
         self._crc = 0
         #--- (end of generated code: YFileRecord attributes)
-        self._crc = -1
-        self._size = -1
-        j = YAPI.TJsonParser(json, False)
-        node = j.GetRootNode()
-        for member in node.members:
-            if member.name == "name":
-                self._name = member.svalue
-            elif member.name == "crc":
-                self._crc = member.ivalue
-            elif member.name == "size":
-                self._size = member.ivalue
+        json = YJSONObject(json_str,0,len(json_str))
+        json.parse()
+        self._name = json.getString("name")
+        self._crc = json.getInt("crc")
+        self._size = json.getInt("size")
 
     #--- (generated code: YFileRecord implementation)
     def get_name(self):
@@ -79,9 +74,8 @@ class YFileRecord(object):
 
 #--- (end of generated code: YFileRecord implementation)
 
-#--- (FileRecord generated code: functions)
-
-#--- (end of FileRecord generated code: functions)
+#--- (generated code: YFileRecord functions)
+#--- (end of generated code: YFileRecord functions)
 
 
 #--- (generated code: YFiles class start)
@@ -110,14 +104,12 @@ class YFiles(YFunction):
         #--- (end of generated code: YFiles attributes)
 
     #--- (generated code: YFiles implementation)
-    def _parseAttr(self, member):
-        if member.name == "filesCount":
-            self._filesCount = member.ivalue
-            return 1
-        if member.name == "freeSpace":
-            self._freeSpace = member.ivalue
-            return 1
-        super(YFiles, self)._parseAttr(member)
+    def _parseAttr(self, json_val):
+        if json_val.has("filesCount"):
+            self._filesCount = json_val.getInt("filesCount")
+        if json_val.has("freeSpace"):
+            self._freeSpace = json_val.getInt("freeSpace")
+        super(YFiles, self)._parseAttr(json_val)
 
     def get_filesCount(self):
         """
@@ -127,10 +119,12 @@ class YFiles(YFunction):
 
         On failure, throws an exception or returns YFiles.FILESCOUNT_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YFiles.FILESCOUNT_INVALID
-        return self._filesCount
+        res = self._filesCount
+        return res
 
     def get_freeSpace(self):
         """
@@ -140,10 +134,12 @@ class YFiles(YFunction):
 
         On failure, throws an exception or returns YFiles.FREESPACE_INVALID.
         """
+        # res
         if self._cacheExpiration <= YAPI.GetTickCount():
             if self.load(YAPI.DefaultCacheValidity) != YAPI.SUCCESS:
                 return YFiles.FREESPACE_INVALID
-        return self._freeSpace
+        res = self._freeSpace
+        return res
 
     @staticmethod
     def FindFiles(func):
@@ -166,6 +162,10 @@ class YFiles(YFunction):
         found is returned. The search is performed first by hardware name,
         then by logical name.
 
+        If a call to this object's is_online() method returns FALSE although
+        you are certain that the matching device is plugged, make sure that you did
+        call registerHub() at application initialization time.
+
         @param func : a string that uniquely characterizes the filesystem
 
         @return a YFiles object allowing you to drive the filesystem.
@@ -180,7 +180,7 @@ class YFiles(YFunction):
     def sendCommand(self, command):
         # url
         url = "files.json?a=" + command
-        # // may throw an exception
+
         return self._download(url)
 
     def format_fs(self):
@@ -310,7 +310,7 @@ class YFiles(YFunction):
 
 #--- (end of generated code: YFiles implementation)
 
-#--- (generated code: Files functions)
+#--- (generated code: YFiles functions)
 
     @staticmethod
     def FirstFiles():
@@ -344,5 +344,5 @@ class YFiles(YFunction):
 
         return YFiles.FindFiles(serialRef.value + "." + funcIdRef.value)
 
-#--- (end of generated code: Files functions)
+#--- (end of generated code: YFiles functions)
 
