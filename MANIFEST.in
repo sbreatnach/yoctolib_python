@@ -1,1 +1,2 @@
 include Sources/cdll/libyapi-armel.so
+include Sources/cdll/libyapi-armhf.so
